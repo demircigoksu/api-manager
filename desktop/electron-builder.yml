@@ -97,8 +97,8 @@ linux:
         - x64
 portable:
   artifactName: "${productName}-Portable-${version}.${ext}"
-  # Unpack once into a stable cache folder instead of a fresh temp folder per launch.
-  unpackDirName: "FreeLLMAPI-portable"
+  # No fixed unpackDirName: a second launch (which only wakes the running app)
+  # would unpack into, then clean up, the folder the first instance runs from.
 nsis:
   # electron-builder's default NSIS name has spaces ("FreeLLMAPI Setup x.y.z.exe")
   # and latest.yml records it with dashes, while GitHub stores the upload with
