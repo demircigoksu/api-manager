@@ -43,6 +43,11 @@ function parseHexKey(value: string, source: 'env' | 'db' | 'file'): Buffer {
 // env key: a generated key lives only on the local disk and silently losing it
 // would make every stored API key undecryptable.
 function isDevFallbackAllowed(): boolean {
+  // The desktop app keeps its key file next to its own database in the user's
+  // profile, whatever NODE_ENV the launching process happened to export (a
+  // NODE_ENV=production inherited from a developer shell or tool made the
+  // packaged app refuse to start).
+  if (process.env.FREEAPI_DESKTOP === '1') return true;
   return process.env.NODE_ENV !== 'production';
 }
 

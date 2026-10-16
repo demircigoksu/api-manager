@@ -21,7 +21,8 @@ publish:
 asar: true
 # Linux chrome-sandbox must be mode 4755 (setuid) in the .deb; otherwise
 # Electron aborts at launch (#1229). Path is relative to desktop/.
-afterPack: ./scripts/after-pack-linux-sandbox.mjs
+# afterPack also flips the Electron security fuses (scripts/after-pack.mjs).
+afterPack: ./scripts/after-pack.mjs
 afterSign: ./scripts/after-sign-notarize.mjs
 asarUnpack:
   - "**/node_modules/better-sqlite3/**/*.node"
@@ -63,6 +64,10 @@ dmg:
   sign: true
 win:
   target:
+    # Single self-contained .exe: no installer, no Docker, nothing else to set up.
+    - target: portable
+      arch:
+        - x64
     - target: nsis
       arch:
         - x64
@@ -71,6 +76,9 @@ win:
         - x64
   # electron-builder converts a >=256px PNG to .ico at build time.
   icon: assets/appicon_1024.png
+  # Icon and version info are written by scripts/after-pack.mjs (resedit) so
+  # the .exe can be cross-built without Wine. No code-signing certificate.
+  signAndEditExecutable: false
 linux:
   category: Development;Utility;
   icon: assets/appicon_1024.png # electron-builder can automatically scale PNGs
@@ -87,6 +95,10 @@ linux:
     - target: rpm
       arch:
         - x64
+portable:
+  artifactName: "${productName}-Portable-${version}.${ext}"
+  # Unpack once into a stable cache folder instead of a fresh temp folder per launch.
+  unpackDirName: "FreeLLMAPI-portable"
 nsis:
   # electron-builder's default NSIS name has spaces ("FreeLLMAPI Setup x.y.z.exe")
   # and latest.yml records it with dashes, while GitHub stores the upload with

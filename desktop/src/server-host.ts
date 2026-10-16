@@ -27,7 +27,9 @@ import { installLogRedaction } from '../../server/src/lib/log-redaction.js';
 import { desktopSessionToken } from '../../server/src/services/auth.js';
 import { NodeScheduler } from '../../server/src/lib/scheduler.js';
 
-export { getDb, getUnifiedApiKey, isAutoUpdateCheckEnabled };
+import { onKeyInvalid } from '../../server/src/lib/key-events.js';
+
+export { getDb, getUnifiedApiKey, isAutoUpdateCheckEnabled, onKeyInvalid };
 
 // Desktop updater → a full dump before an update installs, listed on the
 // Backups page as "Pre-update". Returns the file it wrote.

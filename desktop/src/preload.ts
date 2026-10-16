@@ -56,6 +56,28 @@ contextBridge.exposeInMainWorld('__FREEAPI_UPDATER__', {
   },
 });
 
+// Key harvester (Keys page, "Anahtar Toplayıcı" tab). Narrow on purpose: the
+// dashboard can list providers, start sign-in windows and harvests, and store
+// a password, but never read one back.
+contextBridge.exposeInMainWorld('__FREEAPI_HARVESTER__', {
+  list: () => ipcRenderer.invoke('freeapi:harvester:list'),
+  harvest: (id: string) => ipcRenderer.invoke('freeapi:harvester:harvest', id),
+  harvestAll: () => ipcRenderer.invoke('freeapi:harvester:harvest-all'),
+  login: (id: string) => ipcRenderer.invoke('freeapi:harvester:login', id),
+  check: (id: string) => ipcRenderer.invoke('freeapi:harvester:check', id),
+  logout: (id: string) => ipcRenderer.invoke('freeapi:harvester:logout', id),
+  setCredentials: (id: string, email: string, password: string) => ipcRenderer.invoke('freeapi:harvester:set-credentials', id, email, password),
+  clearCredentials: (id: string) => ipcRenderer.invoke('freeapi:harvester:clear-credentials', id),
+  setAutoRefresh: (id: string, on: boolean) => ipcRenderer.invoke('freeapi:harvester:set-auto', id, on),
+  reloadRecipes: () => ipcRenderer.invoke('freeapi:harvester:reload-recipes'),
+  openRecipesFolder: () => ipcRenderer.invoke('freeapi:harvester:open-recipes-folder'),
+  subscribe: (listener: () => void) => {
+    const handler = () => listener();
+    ipcRenderer.on('freeapi:harvester-changed', handler);
+    return () => { ipcRenderer.removeListener('freeapi:harvester-changed', handler); };
+  },
+});
+
 // `desktop` class on <html> identifies the desktop shell. On macOS, `desktop-mac`
 // activates the translucent glass backdrop that pairs with native vibrancy;
 // on Windows and Linux, the solid theme background is preserved so contrast and

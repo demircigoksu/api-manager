@@ -82,6 +82,17 @@ describe('initEncryptionKey — input validation', () => {
     expect(row).toBeUndefined();
   });
 
+  it('lets the desktop app keep its local key file even when NODE_ENV=production leaks in', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.FREEAPI_DESKTOP = '1';
+    try {
+      const db = freshDb();
+      expect(() => initEncryptionKey(db)).not.toThrow();
+    } finally {
+      delete process.env.FREEAPI_DESKTOP;
+    }
+  });
+
   it('does not load a DB-stored fallback key in production', () => {
     process.env.NODE_ENV = 'production';
     const db = freshDb();

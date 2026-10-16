@@ -25,7 +25,10 @@ describe('linux chrome-sandbox packaging (#1229)', () => {
     };
     const linuxTargets = (config.linux?.target ?? []).map((entry) => entry.target);
     expect(linuxTargets).toContain('deb');
-    expect(config.afterPack).toBe(afterPackRel);
+    // The configured hook is the combined after-pack.mjs (fuses + sandbox),
+    // which must delegate to the sandbox helper tested below.
+    expect(config.afterPack).toBe('./scripts/after-pack.mjs');
+    expect(readFileSync(resolve(desktopRoot, config.afterPack!), 'utf8')).toContain('after-pack-linux-sandbox.mjs');
     expect(existsSync(afterPackPath)).toBe(true);
 
     const source = readFileSync(afterPackPath, 'utf8');

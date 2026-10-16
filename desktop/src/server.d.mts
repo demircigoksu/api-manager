@@ -23,3 +23,12 @@ export function getUnifiedApiKey(): string;
 export function isAutoUpdateCheckEnabled(): boolean;
 export function backupBeforeUpdate(): string;
 export function outboundProxyUrl(): string;
+
+export interface KeyInvalidEvent {
+  keyId: number;
+  platform: string;
+  label: string;
+  reason: string | null;
+  autoDisabled: boolean;
+}
+export function onKeyInvalid(listener: (event: KeyInvalidEvent) => void): () => void;

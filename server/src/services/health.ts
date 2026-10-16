@@ -11,6 +11,7 @@ import type { Scheduler } from '../lib/scheduler.js';
 import { sanitizeProviderErrorMessage } from '../lib/error-redaction.js';
 import { providerLog } from '../lib/server-logs.js';
 import { triggerBuiltinModelDiscovery } from './builtin-model-discovery.js';
+import { emitKeyInvalid } from '../lib/key-events.js';
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const CONSECUTIVE_FAILURES_TO_DISABLE = 3;
@@ -154,7 +155,7 @@ export function clearValidationRateLimitState(): void {
   validationRateLimitedAt.clear();
 }
 
-function recordInvalidFailure(keyId: number, platform?: string): void {
+function recordInvalidFailure(keyId: number, platform?: string): boolean {
   const count = (failureCount.get(keyId) ?? 0) + 1;
   failureCount.set(keyId, count);
 
@@ -170,7 +171,9 @@ function recordInvalidFailure(keyId: number, platform?: string): void {
       `[Health] Auto-disabled key ${keyId} after ${count} consecutive failures`,
       { provider: platform, event: 'key_auto_disabled' },
     );
+    return true;
   }
+  return false;
 }
 
 /**
@@ -312,7 +315,14 @@ export async function checkKeyHealth(keyId: number): Promise<KeyStatus> {
         `[Health] Key ${keyId} (${row.platform}, base=${row.base_url ?? 'default'}) invalid: ${lastError}`,
         { provider: row.platform, event: 'key_invalid' },
       );
-      recordInvalidFailure(keyId, row.platform);
+      const autoDisabled = recordInvalidFailure(keyId, row.platform);
+      emitKeyInvalid({
+        keyId,
+        platform: row.platform,
+        label: row.label ?? '',
+        reason: lastError,
+        autoDisabled,
+      });
     }
 
     return status;

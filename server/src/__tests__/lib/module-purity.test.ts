@@ -37,6 +37,8 @@ const PURE_MODULES = [
   'error-classify.ts',
   // Signal handling for the container's PID 1; the server, DB and process are injected.
   'graceful-shutdown.ts',
+  // In-process invalid-key notifications for the desktop key harvester.
+  'key-events.ts',
   'header-value.ts',
   'provider-identity.ts',
   'provider-size-parser.ts',

@@ -19,10 +19,14 @@ import { ProviderChecklistSection } from '@/components/keys/provider-checklist-s
 import { AddKeyDialog } from '@/components/keys/add-key-dialog'
 import { ExportKeysDialog } from '@/components/keys/export-keys-dialog'
 import { AgentCompatibilitySection } from '@/components/keys/agent-compatibility-section'
+import { HarvesterSection } from '@/components/keys/harvester-section'
+import { hasHarvester } from '@/lib/desktop-harvester'
 
-type KeysTab = 'providers' | 'quotaSignals' | 'apiKey' | 'anthropic' | 'agents'
-const KEYS_TABS: { id: KeysTab; labelKey: string }[] = [
+type KeysTab = 'providers' | 'harvester' | 'quotaSignals' | 'apiKey' | 'anthropic' | 'agents'
+const KEYS_TABS: { id: KeysTab; labelKey: string; desktopOnly?: boolean }[] = [
   { id: 'providers', labelKey: 'keys.tabProviders' },
+  // Key Harvester needs the desktop shell (it drives provider sign-in windows).
+  { id: 'harvester', labelKey: 'keys.tabHarvester', desktopOnly: true },
   { id: 'quotaSignals', labelKey: 'keys.tabQuotaSignals' },
   { id: 'apiKey', labelKey: 'keys.tabApiKey' },
   { id: 'anthropic', labelKey: 'keys.tabAnthropic' },
@@ -92,7 +96,7 @@ export default function KeysPage() {
             <SegmentedControl
               value={tab}
               onValueChange={setTab}
-              options={KEYS_TABS.map(tb => ({ value: tb.id, label: t(tb.labelKey) }))}
+              options={KEYS_TABS.filter(tb => !tb.desktopOnly || hasHarvester()).map(tb => ({ value: tb.id, label: t(tb.labelKey) }))}
               ariaLabel={t('keys.pageTitle')}
             />
           </>
@@ -109,6 +113,7 @@ export default function KeysPage() {
           </>
         )}
 
+        {tab === 'harvester' && <HarvesterSection />}
         {tab === 'anthropic' && <AnthropicSection />}
         {tab === 'agents' && <AgentCompatibilitySection />}
 

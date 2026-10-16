@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, dialog, ipcMain, clipboard, nativeTheme, screen, shell, type Tray } from 'electron';
-import { startServer, ensureSessionToken, getUnifiedApiKey, isAutoUpdateCheckEnabled, backupBeforeUpdate, outboundProxyUrl } from './server.mjs';
+import { startServer, ensureSessionToken, getUnifiedApiKey, isAutoUpdateCheckEnabled, backupBeforeUpdate, outboundProxyUrl, onKeyInvalid } from './server.mjs';
 import { loadConfig, saveConfig } from './config.js';
 import { installFileLogger } from './logger.js';
 import { buildTray, refreshTrayLocale } from './tray.js';
@@ -11,6 +11,7 @@ import { openDashboard } from './window.js';
 import { todayStats, hourlyRequests, successRateToday } from './stats.js';
 import { normalizeLocale, nativeStrings, type NativeLocale } from './i18n.js';
 import { initUpdater, getUpdateState, checkForUpdates, downloadUpdate, installUpdate, checkFromTray } from './updater.js';
+import { Harvester, registerHarvesterIpc, isHarvesterContents } from './harvester/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 31415;
@@ -91,6 +92,9 @@ if (!app.requestSingleInstanceLock()) {
     }
   };
   app.on('web-contents-created', (_event, contents) => {
+    // Key-harvester windows browse provider consoles on purpose (sign-in
+    // redirects, OAuth popups); they set their own handlers in harvester/engine.
+    if (isHarvesterContents(contents)) return;
     contents.setWindowOpenHandler(({ url }) => {
       if (isExternal(url)) shell.openExternal(url);
       return { action: 'deny' };
@@ -297,6 +301,18 @@ if (!app.requestSingleInstanceLock()) {
       resolvedPort = port;
       saveConfig({ ...cfg, port });
       sessionToken = ensureSessionToken();
+      if (process.platform === 'win32') app.setAppUserModelId('com.freellmapi.desktop');
+      try {
+        const harvester = new Harvester({
+          port: () => resolvedPort,
+          token: () => sessionToken || (sessionToken = ensureSessionToken()),
+          locale: () => locale,
+          onKeyInvalid,
+        });
+        registerHarvesterIpc(harvester);
+      } catch (err) {
+        console.warn('[desktop] key harvester unavailable:', err);
+      }
       // The server is already up, so a tray that fails to build must not take
       // the app down with it: fall back to the dashboard window (#1353).
       let tray: Tray | null = null;
