@@ -13,7 +13,7 @@
   "main": "build/main.mjs",
   "scripts": {
     "bundle:server": "node scripts/bundle-server.mjs",
-    "build:main": "esbuild src/main.ts --bundle --platform=node --format=esm --external:electron --external:electron-updater --external:./server.mjs --outfile=build/main.mjs",
+    "build:main": "esbuild src/main.ts --bundle --platform=node --format=esm --main-fields=module,main --external:electron --external:electron-updater --external:./server.mjs \"--banner:js=import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);\" --outfile=build/main.mjs",
     "build:preload": "esbuild src/preload.ts src/preload-popover.ts --bundle --platform=node --format=cjs --external:electron --outdir=build --out-extension:.js=.cjs",
     "build:all": "npm run bundle:server && npm run build:main && npm run build:preload",
     "stage:client": "node scripts/stage-client.mjs",

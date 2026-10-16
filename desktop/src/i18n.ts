@@ -6,7 +6,7 @@
 // config, exactly like the theme. Keep these keys in sync with the six locales
 // shipped by the client (client/src/i18n/locales).
 
-export const NATIVE_LOCALES = ['en', 'zh-CN', 'fr', 'es', 'pt-BR', 'it'] as const;
+export const NATIVE_LOCALES = ['en', 'zh-CN', 'fr', 'es', 'pt-BR', 'it', 'tr'] as const;
 export type NativeLocale = (typeof NATIVE_LOCALES)[number];
 export const DEFAULT_NATIVE_LOCALE: NativeLocale = 'en';
 
@@ -18,6 +18,7 @@ export function normalizeLocale(raw: string | undefined | null): NativeLocale {
   if (l.startsWith('fr')) return 'fr';
   if (l.startsWith('es')) return 'es';
   if (l.startsWith('it')) return 'it';
+  if (l.startsWith('tr')) return 'tr';
   return 'en';
 }
 
@@ -239,6 +240,42 @@ const STRINGS: Record<NativeLocale, Strings> = {
     updateReadyTitle: "FreeLLMAPI v{version} è pronto per l’installazione",
     updateReadyBody: "Riavvia FreeLLMAPI per completare l’aggiornamento. Viene installato anche alla prossima chiusura.",
     restartToUpdate: "Riavvia ora",
+  },
+  tr: {
+    tooltip: 'FreeLLMAPI — yerel LLM yönlendiricisi',
+    runningOn: '{addr} üzerinde çalışıyor',
+    openDashboard: 'Paneli aç',
+    showCompactPanel: 'Küçük paneli göster',
+    lanAccess: 'Yerel ağ erişimine izin ver (0.0.0.0)',
+    showInDock: "Dock'ta göster",
+    openLogs: 'Günlük klasörünü aç',
+    openBackups: 'Yedek klasörünü aç',
+    quitApp: "FreeLLMAPI'den çık",
+    running: 'çalışıyor',
+    requestsToday: 'Bugünkü istekler',
+    tokensToday: 'Bugünkü tokenlar',
+    lastModel: 'Son model',
+    copyUrl: "URL'yi kopyala",
+    copyKey: 'Anahtarı kopyala',
+    copied: 'Kopyalandı ✓',
+    startAtLogin: 'Oturum açılınca başlat',
+    quit: 'Çık',
+    hoursAgo: '24 sa önce',
+    now: 'şimdi',
+    peak: 'en yüksek {n}/sa',
+    successSuffix: '%{n} başarı',
+    checkForUpdates: "Güncellemeleri denetle…",
+    restartToUpdateTray: "Güncellemek için yeniden başlat (v{version})",
+    upToDate: "FreeLLMAPI v{version} en güncel sürüm.",
+    updateAvailable: "FreeLLMAPI v{version} çıktı",
+    updateAvailableDetail: "Sende v{current} var. Güncelleme arka planda iner; kurulmadan önce verilerin yedeklenir.",
+    downloadUpdate: "İndir",
+    releaseNotes: "Sürüm notları",
+    later: "Sonra",
+    updateFailed: "Güncelleme başarısız",
+    updateReadyTitle: "FreeLLMAPI v{version} kurulmaya hazır",
+    updateReadyBody: "Güncellemeyi bitirmek için FreeLLMAPI'yi yeniden başlat. Bir sonraki kapanışta da kurulur.",
+    restartToUpdate: "Şimdi yeniden başlat",
   },
 };
 

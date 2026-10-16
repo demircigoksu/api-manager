@@ -78,6 +78,14 @@ contextBridge.exposeInMainWorld('__FREEAPI_HARVESTER__', {
   },
 });
 
+// Local tab: LLM servers on this machine and AI CLIs on PATH.
+contextBridge.exposeInMainWorld('__FREEAPI_LOCAL__', {
+  servers: () => ipcRenderer.invoke('freeapi:local:servers'),
+  registerServer: (baseUrl: string, name: string) => ipcRenderer.invoke('freeapi:local:register-server', baseUrl, name),
+  clis: () => ipcRenderer.invoke('freeapi:local:clis'),
+  connectCli: (id: string) => ipcRenderer.invoke('freeapi:local:connect-cli', id),
+});
+
 // `desktop` class on <html> identifies the desktop shell. On macOS, `desktop-mac`
 // activates the translucent glass backdrop that pairs with native vibrancy;
 // on Windows and Linux, the solid theme background is preserved so contrast and

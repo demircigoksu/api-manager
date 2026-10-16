@@ -14,6 +14,9 @@ import {
 } from 'react'
 
 import en from './locales/en.json'
+// Api Manager fork: Turkish ships in the main bundle too, so the default
+// language never depends on a lazily loaded chunk being reachable.
+import tr from './locales/tr.json'
 import { I18nContext, type I18nContextValue } from './context'
 import {
   DEFAULT_LOCALE,
@@ -56,6 +59,9 @@ function detectLocale(): Locale {
 
   const stored = window.localStorage.getItem('freellmapi.locale')
   if (stored && supportedLocaleSet.has(stored)) return stored as Locale
+  // Api Manager fork: the desktop app starts in Turkish; Settings → Language
+  // switches it (English and every other locale stay available).
+  if ((window as { __FREEAPI_DESKTOP__?: boolean }).__FREEAPI_DESKTOP__) return 'tr' as Locale
 
   const legacyLanguage = (navigator as { userLanguage?: string }).userLanguage
   const browserLocales = navigator.languages?.length
@@ -73,7 +79,7 @@ type Dictionary = Record<string, unknown>
 type LocaleLoader = () => Promise<Dictionary>
 
 const localeModules = import.meta.glob<Dictionary>(
-  ['./locales/*.json', '!./locales/en.json'],
+  ['./locales/*.json', '!./locales/en.json', '!./locales/tr.json'],
   { import: 'default' },
 )
 const localeLoaders = Object.fromEntries(
@@ -84,6 +90,7 @@ const localeLoaders = Object.fromEntries(
 ) as Partial<Record<Locale, LocaleLoader>>
 const loadedDictionaries: Partial<Record<Locale, Dictionary>> = {
   en: en as Dictionary,
+  tr: tr as Dictionary,
 }
 
 function lookup(dictionary: Dictionary, key: string): unknown {
@@ -115,7 +122,7 @@ export interface I18nProviderProps {
 export function I18nProvider({ children, initialLocale }: I18nProviderProps) {
   const [locale, setLocaleState] = useState<Locale>(() => initialLocale ?? detectLocale())
   const [dictionary, setDictionary] = useState<Dictionary>(
-    () => loadedDictionaries[initialLocale ?? DEFAULT_LOCALE] ?? (en as Dictionary),
+    () => loadedDictionaries[locale] ?? loadedDictionaries[initialLocale ?? DEFAULT_LOCALE] ?? (en as Dictionary),
   )
 
   useEffect(() => {

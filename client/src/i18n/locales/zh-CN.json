@@ -701,7 +701,8 @@
     "copyGroupHandle": "Copy group handle",
     "groupHandleCopied": "Copied {handle}",
     "groupHandleCopyFailed": "Couldn't copy to the clipboard",
-    "tabHarvester": "Key Harvester"
+    "tabHarvester": "Key Harvester",
+    "tabLocal": "Local"
   },
   "backups": {
     "title": "备份",
@@ -1311,5 +1312,30 @@
     "passwordStored": "{name}: password saved securely.",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "local": {
+    "serversTitle": "Local LLM servers",
+    "serversDescription": "OpenAI-compatible servers running on this computer (Ollama, LM Studio, llama.cpp, vLLM, Jan, GPT4All, KoboldCpp, text-generation-webui). Add one to the router to use its models next to the free providers.",
+    "rescan": "Scan again",
+    "scanning": "Scanning…",
+    "noServers": "No local server answered. Checked: {list}.",
+    "added": "In the router",
+    "models": "{count} models: {list}",
+    "noModels": "No model loaded",
+    "addToRouter": "Add to router",
+    "addedToast": "{name} added to the router.",
+    "clisTitle": "Command-line tools on this computer",
+    "clisDescription": "AI tools found on PATH. Coding agents can be pointed at this router in one click; their existing config files are backed up first.",
+    "role": {
+      "agent": "Agent",
+      "runtime": "Model runtime",
+      "token": "Key source"
+    },
+    "routed": "Uses this router",
+    "notRouted": "Uses another endpoint",
+    "connect": "Connect to router",
+    "reconnect": "Connect again",
+    "connected": "{name} now uses this router ({files} files written, {backups} backed up).",
+    "notInstalled": "Not found: {list}."
   }
 }

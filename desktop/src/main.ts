@@ -12,6 +12,7 @@ import { todayStats, hourlyRequests, successRateToday } from './stats.js';
 import { normalizeLocale, nativeStrings, type NativeLocale } from './i18n.js';
 import { initUpdater, getUpdateState, checkForUpdates, downloadUpdate, installUpdate, checkFromTray } from './updater.js';
 import { Harvester, registerHarvesterIpc, isHarvesterContents } from './harvester/index.js';
+import { registerLocalIpc } from './local/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 31415;
@@ -58,7 +59,8 @@ if (!app.requestSingleInstanceLock()) {
   // The dashboard also owns the language (its ⋯-menu selector); the native tray
   // menu and popover follow via the same mirror-and-persist pattern as the theme.
   let locale: NativeLocale = normalizeLocale(
-    (process.env.FREEAPI_LOCALE as string | undefined) ?? loadConfig().locale,
+    // Api Manager fork: Turkish until the dashboard reports another choice.
+    (process.env.FREEAPI_LOCALE as string | undefined) ?? loadConfig().locale ?? 'tr',
   );
 
   app.on('second-instance', () => {
@@ -313,6 +315,11 @@ if (!app.requestSingleInstanceLock()) {
       } catch (err) {
         console.warn('[desktop] key harvester unavailable:', err);
       }
+      registerLocalIpc({
+        port: () => resolvedPort,
+        token: () => sessionToken || (sessionToken = ensureSessionToken()),
+        unifiedKey: () => getUnifiedApiKey(),
+      });
       // The server is already up, so a tray that fails to build must not take
       // the app down with it: fall back to the dashboard window (#1353).
       let tray: Tray | null = null;

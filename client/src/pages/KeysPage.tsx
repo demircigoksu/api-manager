@@ -21,12 +21,14 @@ import { ExportKeysDialog } from '@/components/keys/export-keys-dialog'
 import { AgentCompatibilitySection } from '@/components/keys/agent-compatibility-section'
 import { HarvesterSection } from '@/components/keys/harvester-section'
 import { hasHarvester } from '@/lib/desktop-harvester'
+import { LocalSection } from '@/components/keys/local-section'
 
-type KeysTab = 'providers' | 'harvester' | 'quotaSignals' | 'apiKey' | 'anthropic' | 'agents'
+type KeysTab = 'providers' | 'harvester' | 'local' | 'quotaSignals' | 'apiKey' | 'anthropic' | 'agents'
 const KEYS_TABS: { id: KeysTab; labelKey: string; desktopOnly?: boolean }[] = [
   { id: 'providers', labelKey: 'keys.tabProviders' },
   // Key Harvester needs the desktop shell (it drives provider sign-in windows).
   { id: 'harvester', labelKey: 'keys.tabHarvester', desktopOnly: true },
+  { id: 'local', labelKey: 'keys.tabLocal', desktopOnly: true },
   { id: 'quotaSignals', labelKey: 'keys.tabQuotaSignals' },
   { id: 'apiKey', labelKey: 'keys.tabApiKey' },
   { id: 'anthropic', labelKey: 'keys.tabAnthropic' },
@@ -114,6 +116,7 @@ export default function KeysPage() {
         )}
 
         {tab === 'harvester' && <HarvesterSection />}
+        {tab === 'local' && <LocalSection />}
         {tab === 'anthropic' && <AnthropicSection />}
         {tab === 'agents' && <AgentCompatibilitySection />}
 
