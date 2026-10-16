@@ -25,6 +25,11 @@ interface Def {
   keysUrl: string;
   mode?: RecipeMode;
   signedInUrlPattern?: string;
+  signedInScript?: string;
+  keyPattern?: string;
+  createKey?: string;
+  localSource?: Recipe['localSource'];
+  verified?: boolean;
   note?: { tr: string; en: string };
 }
 
@@ -36,20 +41,65 @@ const custom = (baseUrl: string, models?: string[]): KeyTarget => ({
   groupLabel: 'Anahtar Toplayıcı',
 });
 
+// Verified against the live dashboard (Oct 2026): the dashboard's own API
+// accepts the session cookie plus the x-atok header from /system/bootstrap.
+// The new token gets Workers AI Read + Write on the first account; older
+// tokens this app created are deleted only after the new one exists.
+const CLOUDFLARE_CREATE_KEY = String.raw`
+const boot = await h.fetchJson('/api/v4/system/bootstrap');
+const atok = boot && boot.result && boot.result.data && boot.result.data.atok;
+if (!atok) throw new Error('Cloudflare dashboard token not found');
+const H = { 'content-type': 'application/json', 'x-atok': atok };
+const accounts = (await h.fetchJson('/api/v4/accounts?per_page=50', { headers: H })).result || [];
+if (!accounts.length) throw new Error('No Cloudflare account on this login');
+const account = accounts[0];
+const groups = ((await h.fetchJson('/api/v4/user/tokens/permission_groups', { headers: H })).result || [])
+  .filter((g) => /^Workers AI (Read|Write)$/.test(g.name));
+if (!groups.length) throw new Error('Workers AI permission groups not found');
+const created = await h.fetchJson('/api/v4/user/tokens', {
+  method: 'POST',
+  headers: H,
+  body: JSON.stringify({
+    name: h.keyName,
+    policies: [{ effect: 'allow', resources: { ['com.cloudflare.api.account.' + account.id]: '*' }, permission_groups: groups.map((g) => ({ id: g.id })) }],
+  }),
+});
+if (!created.success || !created.result || !created.result.value) throw new Error('Token creation failed: ' + JSON.stringify(created.errors || []));
+try {
+  const old = ((await h.fetchJson('/api/v4/user/tokens?per_page=50', { headers: H })).result || [])
+    .filter((t) => /^freellmapi-/.test(t.name) && t.id !== created.result.id);
+  for (const t of old) await h.fetchJson('/api/v4/user/tokens/' + t.id, { method: 'DELETE', headers: H }).catch(() => {});
+} catch (e) { /* cleanup is best-effort */ }
+return { key: created.result.value, accountId: account.id };
+`;
+
 const DEFS: Def[] = [
-  { id: 'groq', name: 'Groq', target: platform('groq'), loginUrl: 'https://console.groq.com/login', keysUrl: 'https://console.groq.com/keys',
+  // Groq shows its sign-in form on /keys itself, without a redirect.
+  { id: 'groq', name: 'Groq', target: platform('groq'), loginUrl: 'https://console.groq.com/login', keysUrl: 'https://console.groq.com/keys', keyPattern: 'gsk_[A-Za-z0-9]{40,}',
+    signedInScript: "!Array.from(document.querySelectorAll('button')).some((b) => /continue with (email|google|github)/i.test(b.innerText))",
     note: { tr: 'Giriş e-postaya gelen bağlantıyla yapılır, şifre kaydetmek işe yaramaz.', en: 'Sign-in uses an emailed link, a stored password does not help.' } },
-  { id: 'openrouter', name: 'OpenRouter', target: platform('openrouter'), loginUrl: 'https://openrouter.ai/sign-in', keysUrl: 'https://openrouter.ai/settings/keys' },
+  { id: 'openrouter', name: 'OpenRouter', target: platform('openrouter'), loginUrl: 'https://openrouter.ai/sign-in', keysUrl: 'https://openrouter.ai/settings/keys', keyPattern: 'sk-or-v1-[a-f0-9]{48,}' },
   { id: 'cloudflare', name: 'Cloudflare Workers AI', target: platform('cloudflare'), loginUrl: 'https://dash.cloudflare.com/login', keysUrl: 'https://dash.cloudflare.com/profile/api-tokens',
-    note: { tr: 'Anahtar "hesap_id:token" biçiminde saklanır.', en: 'Stored as "account_id:token".' } },
+    createKey: CLOUDFLARE_CREATE_KEY, verified: true, keyPattern: '^[A-Za-z0-9_-]{40,}$',
+    note: { tr: 'Workers AI Okuma/Yazma yetkili token oluşturur, eskilerini siler. "hesap_id:token" biçiminde saklanır.', en: 'Creates a Workers AI Read/Write token and removes older ones. Stored as "account_id:token".' } },
   { id: 'cerebras', name: 'Cerebras', target: platform('cerebras'), loginUrl: 'https://cloud.cerebras.ai/', keysUrl: 'https://cloud.cerebras.ai/platform',
-    signedInUrlPattern: '^https://cloud\\.cerebras\\.ai/platform' },
+    signedInUrlPattern: '^https://cloud\\.cerebras\\.ai/platform', keyPattern: 'csk-[a-z0-9]{40,}' },
   { id: 'mistral', name: 'Mistral AI', target: platform('mistral'), loginUrl: 'https://console.mistral.ai/', keysUrl: 'https://console.mistral.ai/api-keys' },
-  { id: 'github', name: 'GitHub Models', target: platform('github'), loginUrl: 'https://github.com/login', keysUrl: 'https://github.com/settings/personal-access-tokens/new' },
-  { id: 'huggingface', name: 'Hugging Face', target: platform('huggingface'), loginUrl: 'https://huggingface.co/login', keysUrl: 'https://huggingface.co/settings/tokens' },
-  { id: 'google', name: 'Google Gemini (AI Studio)', target: platform('google'), loginUrl: 'https://aistudio.google.com/app/apikey', keysUrl: 'https://aistudio.google.com/app/apikey',
+  // GitHub asks for a 2FA code before creating a token, so the browser route
+  // cannot run unattended. The GitHub CLI token works for GitHub Models
+  // (verified Oct 2026: models.github.ai answered 200 with a gh OAuth token).
+  { id: 'github', name: 'GitHub Models', target: platform('github'), loginUrl: 'https://github.com/login', keysUrl: 'https://github.com/settings/personal-access-tokens/new',
+    localSource: 'gh-cli', verified: true, keyPattern: '^(gho_|ghp_|github_pat_)[A-Za-z0-9_]{20,}$',
+    note: { tr: 'Bilgisayardaki GitHub CLI (gh) oturumunun anahtarını kullanır. Önce "gh auth login" yapılmış olmalı.', en: 'Uses the GitHub CLI (gh) session on this computer. Run "gh auth login" first.' } },
+  // The token page needs the password again (sudo mode); the CLI token is
+  // the unattended route.
+  { id: 'huggingface', name: 'Hugging Face', target: platform('huggingface'), loginUrl: 'https://huggingface.co/login', keysUrl: 'https://huggingface.co/settings/tokens',
+    localSource: 'hf-cli', keyPattern: '^hf_[A-Za-z0-9]{30,}$',
+    note: { tr: 'Bilgisayardaki Hugging Face CLI oturumunun anahtarını kullanır. Önce "hf auth login" yapılmış olmalı.', en: 'Uses the Hugging Face CLI session on this computer. Run "hf auth login" first.' } },
+  { id: 'google', name: 'Google Gemini (AI Studio)', target: platform('google'), loginUrl: 'https://aistudio.google.com/app/api-keys', keysUrl: 'https://aistudio.google.com/app/api-keys', keyPattern: 'AIza[0-9A-Za-z_-]{35}',
     note: { tr: 'Google, gömülü tarayıcılarda girişi engelleyebilir.', en: 'Google may block sign-in inside embedded browsers.' } },
-  { id: 'nvidia', name: 'NVIDIA NIM', target: platform('nvidia'), loginUrl: 'https://build.nvidia.com/', keysUrl: 'https://build.nvidia.com/settings/api-keys' },
+  { id: 'nvidia', name: 'NVIDIA NIM', target: platform('nvidia'), loginUrl: 'https://build.nvidia.com/', keysUrl: 'https://build.nvidia.com/settings/api-keys', keyPattern: 'nvapi-[A-Za-z0-9_-]{40,}',
+    signedInScript: "!Array.from(document.querySelectorAll('button, a')).some((b) => /^(login|sign in)$/i.test(b.innerText.trim()))" },
   { id: 'cohere', name: 'Cohere', target: platform('cohere'), loginUrl: 'https://dashboard.cohere.com/welcome/login', keysUrl: 'https://dashboard.cohere.com/api-keys',
     note: { tr: 'Ücretsiz anahtar ticari olmayan kullanım içindir.', en: 'The free key is for non-commercial use.' } },
   { id: 'ollama', name: 'Ollama Cloud', target: platform('ollama'), loginUrl: 'https://ollama.com/signin', keysUrl: 'https://ollama.com/settings/keys' },
@@ -72,16 +122,18 @@ const DEFS: Def[] = [
     loginUrl: 'https://modelstudio.console.alibabacloud.com/', keysUrl: 'https://bailian.console.alibabacloud.com/?apiKey=1',
     signedInUrlPattern: '^https://(bailian|modelstudio)\\.console\\.alibabacloud\\.com/' },
   { id: 'sambanova', name: 'SambaNova', target: custom('https://api.sambanova.ai/v1'), loginUrl: 'https://cloud.sambanova.ai/', keysUrl: 'https://cloud.sambanova.ai/apis' },
-  { id: 'xai', name: 'xAI (Grok)', target: custom('https://api.x.ai/v1'), loginUrl: 'https://accounts.x.ai/sign-in', keysUrl: 'https://console.x.ai',
-    signedInUrlPattern: '^https://console\\.x\\.ai/' ,
+  { id: 'xai', name: 'xAI (Grok)', target: custom('https://api.x.ai/v1'), loginUrl: 'https://accounts.x.ai/sign-in', keysUrl: 'https://console.x.ai', keyPattern: 'xai-[A-Za-z0-9]{40,}',
+    signedInUrlPattern: '^https://console\\.x\\.ai/(?!welcome)' ,
     note: { tr: 'Krediye dayalı; ücretsiz kredi yoksa çalışmaz.', en: 'Credit-based; needs free credits on the account.' } },
-  { id: 'chutes', name: 'Chutes.ai', target: custom('https://api.chutes.ai/v1'), loginUrl: 'https://chutes.ai/auth', keysUrl: 'https://chutes.ai/app/api' },
+  { id: 'chutes', name: 'Chutes.ai', target: custom('https://api.chutes.ai/v1'), loginUrl: 'https://chutes.ai/auth', keysUrl: 'https://chutes.ai/app/api', keyPattern: 'cpk_[A-Za-z0-9._-]{30,}' },
   { id: 'glhf', name: 'Glhf.chat', target: custom('https://glhf.chat/api/openai/v1'), loginUrl: 'https://glhf.chat/', keysUrl: 'https://glhf.chat/users/settings/api' },
   { id: 'ai21', name: 'AI21 Labs', target: custom('https://api.ai21.com/studio/v1', ['jamba-large-1.7', 'jamba-mini-2']), loginUrl: 'https://studio.ai21.com/login', keysUrl: 'https://studio.ai21.com/account/api-key' },
   { id: 'deepseek', name: 'DeepSeek', target: custom('https://api.deepseek.com/v1', ['deepseek-chat', 'deepseek-reasoner']), loginUrl: 'https://platform.deepseek.com/sign_in', keysUrl: 'https://platform.deepseek.com/api_keys' },
   { id: 'nscale', name: 'Nscale', target: custom('https://inference.api.nscale.com/v1'), loginUrl: 'https://console.nscale.com/', keysUrl: 'https://console.nscale.com/' ,
     signedInUrlPattern: '^https://console\\.nscale\\.com/(?!login|sign)' },
-  { id: 'nebius', name: 'Nebius AI Studio', target: custom('https://api.studio.nebius.com/v1'), loginUrl: 'https://studio.nebius.com/', keysUrl: 'https://studio.nebius.com/settings/api-keys' },
+  // Nebius AI Studio moved to Token Factory (studio.nebius.com redirects there).
+  { id: 'nebius', name: 'Nebius Token Factory', target: custom('https://api.studio.nebius.com/v1'), loginUrl: 'https://tokenfactory.nebius.com/', keysUrl: 'https://tokenfactory.nebius.com/',
+    signedInUrlPattern: '^https://tokenfactory\\.nebius\\.com/(?!login|sign)' },
 ];
 
 export const BUNDLED_RECIPES: Recipe[] = DEFS.map((d) => ({
@@ -92,8 +144,13 @@ export const BUNDLED_RECIPES: Recipe[] = DEFS.map((d) => ({
   loginUrl: d.loginUrl ?? d.keysUrl,
   keysUrl: d.keysUrl,
   signedInUrlPattern: d.signedInUrlPattern ?? defaultSignedInPattern(d.keysUrl),
+  signedInScript: d.signedInScript,
+  keyPattern: d.keyPattern,
+  createKey: d.createKey,
+  localSource: d.localSource,
+  ...(d.createKey || d.localSource ? { mode: 'auto' as const } : {}),
   note: d.note,
-  verified: false,
+  verified: d.verified === true,
   source: 'bundled',
 }));
 

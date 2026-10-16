@@ -5,4 +5,4 @@ export function openUpdates(): void {
   window.dispatchEvent(new Event(OPEN_UPDATES_EVENT))
 }
 
-export const RELEASES_URL = 'https://github.com/tashfeenahmed/freellmapi/releases/latest'
+export const RELEASES_URL = 'https://github.com/demircigoksu/api-manager/releases/latest'

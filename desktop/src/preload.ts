@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld(
 
 // The in-app updater (the Settings update dialog and the update reminder). Like the session bridge above, deliberately
 // narrow: it can only check for, download and install the release published at
-// tashfeenahmed/freellmapi — the feed URL and signature checks live in the main
+// demircigoksu/api-manager — the feed URL and signature checks live in the main
 // process and nothing here can point them anywhere else.
 contextBridge.exposeInMainWorld('__FREEAPI_UPDATER__', {
   state: () => ipcRenderer.invoke('freeapi:update-state'),

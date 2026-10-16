@@ -1283,7 +1283,7 @@
     "unverified": "Unverified recipe",
     "userRecipe": "User recipe",
     "customEndpoint": "Custom endpoint",
-    "manualHint": "No automatic recipe yet. Sign in, create the key in the window that opens and add it on the Providers tab.",
+    "manualHint": "No automatic recipe yet. Press Sign in, create a key in the window and press the page's Copy button: the app captures the key and saves it.",
     "autoRefresh": "Auto-replace",
     "savePassword": "Save password",
     "passwordSaved": "Password saved",

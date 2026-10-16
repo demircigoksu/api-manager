@@ -1283,7 +1283,7 @@
     "unverified": "Doğrulanmamış tarif",
     "userRecipe": "Kullanıcı tarifi",
     "customEndpoint": "Özel uç nokta",
-    "manualHint": "Henüz otomatik tarif yok. Giriş yap, açılan pencerede anahtarı oluştur ve Sağlayıcılar sekmesinden ekle.",
+    "manualHint": "Henüz otomatik tarif yok. Giriş yap'a bas, açılan pencerede anahtar oluştur ve sayfadaki Kopyala'ya bas: uygulama anahtarı yakalayıp kaydeder.",
     "autoRefresh": "Bozulunca yenile",
     "savePassword": "Şifre kaydet",
     "passwordSaved": "Şifre kayıtlı",

@@ -27,7 +27,7 @@ function isNetworkError(message: string): boolean {
 }
 
 const DOCKER_COMMAND = 'docker compose pull && docker compose up -d'
-const SOURCE_COMMAND = 'git fetch https://github.com/tashfeenahmed/freellmapi.git main && git merge --ff-only FETCH_HEAD && npm ci && npm run build'
+const SOURCE_COMMAND = 'git fetch https://github.com/demircigoksu/api-manager.git main && git merge --ff-only FETCH_HEAD && npm ci && npm run build'
 
 /**
  * The one place updates live: opened from the ⋯ menu or the update pill.

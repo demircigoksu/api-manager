@@ -54,8 +54,14 @@ export interface Recipe {
    * `h` in scope. It must `return` the key string, or `{ key, accountId }`.
    */
   createKey?: string;
-  /** Regex (source) a created key must match. */
+  /** Regex (source) a created key must match. Also used to spot a key the
+   *  user creates by hand in the sign-in window. */
   keyPattern?: string;
+  /**
+   * Take the key from a CLI the user is already signed in to on this
+   * computer instead of a web page. Only bundled recipes may set this.
+   */
+  localSource?: 'gh-cli' | 'hf-cli';
   /** True when verified against the live site. Drafts show a warning. */
   verified?: boolean;
   /** Short note shown in the dashboard (Turkish and English). */
@@ -88,6 +94,7 @@ export interface RecipeView {
   source: 'bundled' | 'user';
   note?: { tr: string; en: string };
   supportsAutoLogin: boolean;
+  localSource?: 'gh-cli' | 'hf-cli';
   hasCredentials: boolean;
   credentialEmail?: string;
   running: boolean;

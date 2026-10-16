@@ -21,7 +21,7 @@ export type { UpdateState };
 
 const { autoUpdater } = electronUpdater;
 
-const RELEASES_URL = 'https://github.com/tashfeenahmed/freellmapi/releases/latest';
+const RELEASES_URL = 'https://github.com/demircigoksu/api-manager/releases/latest';
 const BACKGROUND_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const FIRST_BACKGROUND_CHECK_MS = 60 * 1000;
 

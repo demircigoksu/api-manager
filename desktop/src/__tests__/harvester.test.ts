@@ -84,9 +84,11 @@ describe('mergeRecipes', () => {
 describe('normaliseCreatedKey', () => {
   const recipe = (over: Partial<Recipe> = {}): Recipe => ({ ...BUNDLED_RECIPES.find((r) => r.id === 'groq')!, ...over });
 
+  const gsk = 'gsk_' + 'A1'.repeat(26);
+
   it('accepts strings and {key}', () => {
-    expect(normaliseCreatedKey(recipe(), '  gsk_abc  ')).toBe('gsk_abc');
-    expect(normaliseCreatedKey(recipe(), { key: 'gsk_abc' })).toBe('gsk_abc');
+    expect(normaliseCreatedKey(recipe(), `  ${gsk}  `)).toBe(gsk);
+    expect(normaliseCreatedKey(recipe(), { key: gsk })).toBe(gsk);
   });
 
   it('enforces keyPattern', () => {
@@ -95,8 +97,9 @@ describe('normaliseCreatedKey', () => {
 
   it('builds the Cloudflare account_id:token form', () => {
     const cf = BUNDLED_RECIPES.find((r) => r.id === 'cloudflare')!;
-    expect(normaliseCreatedKey(cf, { key: 'tok', accountId: 'acc' })).toBe('acc:tok');
-    expect(() => normaliseCreatedKey(cf, 'tok')).toThrow(/account id/);
+    const tok = 'T'.repeat(53);
+    expect(normaliseCreatedKey(cf, { key: tok, accountId: 'acc' })).toBe(`acc:${tok}`);
+    expect(() => normaliseCreatedKey(cf, tok)).toThrow(/account id/);
   });
 
   it('rejects empty results', () => {
@@ -204,5 +207,55 @@ describe('wrapRecipeScript', () => {
     expect(await run(wrapRecipeScript('throw new Error("nope");'))).toEqual({ ok: false, error: 'nope' });
     expect(await run(wrapRecipeScript('return h.keyName;'))).toMatchObject({ ok: true, value: expect.stringMatching(/^freellmapi-\d{8}-\d{4}$/) });
     delete g.document;
+  });
+});
+
+describe('verified recipes', () => {
+  it('ship syntactically valid page scripts', () => {
+    for (const r of BUNDLED_RECIPES) {
+      if (r.createKey) expect(() => new Function(`return ${wrapRecipeScript(r.createKey!)}`), r.id).not.toThrow();
+      if (r.signedInScript) expect(() => new Function(`return (${r.signedInScript})`), r.id).not.toThrow();
+    }
+  });
+
+  it('mark Cloudflare and GitHub as automatic and verified', () => {
+    const cf = BUNDLED_RECIPES.find((r) => r.id === 'cloudflare')!;
+    const gh = BUNDLED_RECIPES.find((r) => r.id === 'github')!;
+    expect(cf.mode).toBe('auto');
+    expect(cf.verified).toBe(true);
+    expect(gh.mode).toBe('auto');
+    expect(gh.localSource).toBe('gh-cli');
+  });
+
+  it('never accepts localSource from a user recipe file', () => {
+    const r = parseRecipe({ id: 'github', target: { kind: 'platform', platform: 'github' }, keysUrl: 'https://github.com/x', localSource: 'gh-cli' });
+    expect('recipe' in r && r.recipe.localSource).toBeFalsy();
+  });
+});
+
+describe('pickCapturedKey', async () => {
+  const { pickCapturedKey, DEFAULT_SIGNED_IN_SCRIPT } = await import('../harvester/capture.js');
+  const groq = /gsk_[A-Za-z0-9]{40,}/;
+  const key = 'gsk_' + 'a'.repeat(48);
+
+  it('prefers a copied key, and extracts it from surrounding text', () => {
+    expect(pickCapturedKey(key, null, groq)).toBe(key);
+    expect(pickCapturedKey(`export GROQ_API_KEY=${key}`, null, groq)).toBe(key);
+  });
+
+  it('falls back to a key visible on the page', () => {
+    expect(pickCapturedKey('me@example.com', key, groq)).toBe(key);
+  });
+
+  it('without a provider pattern only trusts a key-shaped copy', () => {
+    expect(pickCapturedKey('sk-abcdefghijklmnopqrstuvwxyz012345', null, null)).toBe('sk-abcdefghijklmnopqrstuvwxyz012345');
+    expect(pickCapturedKey('me@example.com', null, null)).toBeNull();
+    expect(pickCapturedKey('https://example.com/a-long-link-here', null, null)).toBeNull();
+    expect(pickCapturedKey('two words here and there and more', null, null)).toBeNull();
+    expect(pickCapturedKey('', 'whatever', null)).toBeNull();
+  });
+
+  it('ships a parseable default signed-in check', () => {
+    expect(() => new Function(`return ${DEFAULT_SIGNED_IN_SCRIPT}`)).not.toThrow();
   });
 });

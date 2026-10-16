@@ -18,6 +18,7 @@ export interface HarvestRecipe {
   source: 'bundled' | 'user'
   note?: { tr: string; en: string }
   supportsAutoLogin: boolean
+  localSource?: 'gh-cli' | 'hf-cli'
   hasCredentials: boolean
   credentialEmail?: string
   running: boolean

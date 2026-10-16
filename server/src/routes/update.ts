@@ -7,7 +7,7 @@ import { getAppVersion } from '../lib/app-version.js';
 
 const execFileAsync = promisify(nodeExecFile);
 
-const REPOSITORY = 'tashfeenahmed/freellmapi';
+const REPOSITORY = 'demircigoksu/api-manager';
 const RELEASES_URL = `https://github.com/${REPOSITORY}/releases`;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 /**

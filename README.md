@@ -1,3 +1,38 @@
+> **Api Manager** is a fork of [tashfeenahmed/freellmapi](https://github.com/tashfeenahmed/freellmapi) (MIT) by [@demircigoksu](https://github.com/demircigoksu).
+> It adds a **Key Harvester** to the desktop app and a **single portable Windows .exe** (no installer, no Docker).
+> Everything below the line is the upstream README.
+>
+> **Türkçe:** Bu depo, freellmapi'nin çatalıdır. Masaüstü uygulamasına **Anahtar Toplayıcı** ve **tek dosyalık taşınabilir Windows .exe** ekler.
+
+## Key Harvester / Anahtar Toplayıcı
+
+Keys page → **Key Harvester** tab (desktop app only).
+
+- Every provider gets its own persistent sign-in session inside the app. Sign in once; keys are then created in a hidden window and saved to the router.
+- When the health check rejects a stored key (401/403), a replacement is fetched automatically and written over the rejected one.
+- Providers without an automatic recipe: press **Sign in**, create a key in the window and press the page's **Copy** button. The key is captured and saved.
+- Optional saved password for automatic re-sign-in, encrypted with the OS key store (DPAPI on Windows) and never shown again.
+- Provider steps live in editable JSON *recipes* (`%APPDATA%\FreeLLMAPI\recipes`), so a console redesign is fixed without rebuilding the app. See [docs/en/key-harvester.md](docs/en/key-harvester.md).
+
+| Provider | How the key is obtained | Status |
+|---|---|---|
+| Cloudflare Workers AI | Dashboard API with the signed-in session (Workers AI Read/Write token) | Verified |
+| GitHub Models | Token of the GitHub CLI (`gh auth login`) on this computer | Verified |
+| Hugging Face | Token of the Hugging Face CLI (`hf auth login`) on this computer | Supported |
+| Kilo Code, OVHcloud | No key needed, one click | Verified |
+| All other providers (Groq, OpenRouter, Mistral, Cerebras, NVIDIA, Gemini, …) | Sign-in window + key capture on Copy | Supported |
+
+**Download:** the portable `.exe` is attached to this fork's [Releases](https://github.com/demircigoksu/api-manager/releases).
+It is not code-signed, so Windows SmartScreen may ask once ("More info" → "Run anyway").
+
+**Build it yourself:** `npm ci && npm --prefix desktop ci && npm run desktop:dist:win:portable` (cross-builds from Linux/macOS too, no Wine).
+
+**Security hardening of the Windows build:** Electron fuses (no `RunAsNode`, no `NODE_OPTIONS`, no inspector flags, app only from asar, cookie store encrypted at rest).
+
+> **Use responsibly.** Automating a provider's console may be restricted by its terms of service. The harvester only uses accounts you already own and signs in the way you would; it does not create accounts. Free tiers are per account, so extra keys do not add quota. You are responsible for complying with each provider's terms.
+
+---
+
 <div align="center">
 
 # FreeLLMAPI

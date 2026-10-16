@@ -1,6 +1,11 @@
+import { execFile } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { BrowserWindow, session, type Session, type WebContents } from 'electron';
-import { wrapRecipeScript } from './page-helpers.js';
+import { PAGE_HELPERS, wrapRecipeScript } from './page-helpers.js';
 import { normaliseCreatedKey } from './recipes.js';
+import { DEFAULT_SIGNED_IN_SCRIPT, pickCapturedKey } from './capture.js';
 import type { LoginStep, Recipe } from './types.js';
 
 // The browser side of the harvester. Every recipe gets its own persistent
@@ -99,9 +104,12 @@ async function load(win: BrowserWindow, url: string): Promise<void> {
 async function isSignedIn(win: BrowserWindow, recipe: Recipe): Promise<boolean> {
   const url = win.webContents.getURL();
   if (!new RegExp(recipe.signedInUrlPattern).test(url)) return false;
-  if (!recipe.signedInScript) return true;
+  // Some consoles render their sign-in form on the keys URL itself. Without a
+  // recipe-specific check, a visible password field or a lone "Sign in"
+  // button means the session is gone.
+  const script = recipe.signedInScript ?? DEFAULT_SIGNED_IN_SCRIPT;
   try {
-    return Boolean(await win.webContents.executeJavaScript(`(() => { try { return !!(${recipe.signedInScript}); } catch { return false; } })()`, true));
+    return Boolean(await win.webContents.executeJavaScript(`(() => { try { return !!(${script}); } catch { return false; } })()`, true));
   } catch (err) {
     console.log(`[harvester] ${recipe.id}: signedInScript failed:`, String((err as any)?.message ?? err).slice(0, 200));
     return false;
@@ -156,6 +164,11 @@ export interface RunOptions {
  * human has to sign in.
  */
 export async function runRecipe(recipe: Recipe, opts: RunOptions = {}): Promise<string> {
+  if (recipe.localSource) {
+    const key = await readLocalSource(recipe.localSource);
+    if (opts.checkOnly) return '';
+    return normaliseCreatedKey(recipe, key);
+  }
   const win = makeWindow(recipe, opts.visible === true);
   try {
     await load(win, recipe.keysUrl);
@@ -192,31 +205,90 @@ export async function runRecipe(recipe: Recipe, opts: RunOptions = {}): Promise<
 }
 
 /**
- * Visible sign-in window. Resolves when the user closes it, or shortly after
- * the page reaches a signed-in URL. The caller verifies the session afterwards.
+ * Visible sign-in window. While it is open, a key that appears on the page
+ * (matching the recipe's keyPattern) or that the user copies with the page's
+ * Copy button is captured, so a provider without an automatic recipe still
+ * needs only "sign in, create key, copy". Resolves when the user closes the
+ * window, with the captured key if there was one.
  */
-export function openLoginWindow(recipe: Recipe, title: string): Promise<void> {
+export function openLoginWindow(recipe: Recipe, title: string): Promise<{ capturedKey?: string }> {
   const win = makeWindow(recipe, true);
   win.setTitle(title);
-  return new Promise<void>((resolve) => {
+  const keyRe = recipe.keyPattern ? new RegExp(recipe.keyPattern.replace(/^\^|\$$/g, '')) : null;
+  return new Promise((resolve) => {
     let done = false;
+    let captured: string | undefined;
     const finish = () => {
       if (done) return;
       done = true;
-      resolve();
+      clearInterval(poll);
+      resolve({ capturedKey: captured });
     };
-    const onNav = (_e: unknown, url: string) => {
-      if (new RegExp(recipe.signedInUrlPattern).test(url)) {
-        setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 1_200);
+    const inject = () => {
+      win.webContents
+        .executeJavaScript(`(() => { if (window.__harvestHooked) return; window.__harvestHooked = true; ${PAGE_HELPERS}; h.captureClipboard(); })()`, true)
+        .catch(() => {});
+    };
+    win.webContents.on('dom-ready', inject);
+    const poll = setInterval(async () => {
+      if (win.isDestroyed() || captured) return;
+      try {
+        const found = await win.webContents.executeJavaScript(
+          `(() => {
+            const re = ${keyRe ? `new RegExp(${JSON.stringify(keyRe.source)})` : 'null'};
+            const clip = String(window.__harvestClipboard || '').trim();
+            let page = null;
+            if (re) {
+              for (const el of document.querySelectorAll('input, textarea')) { const m = (el.value || '').match(re); if (m) { page = m[0]; break; } }
+              if (!page) for (const el of document.querySelectorAll('code, pre, span, div, p')) { if (el.children.length > 2) continue; const m = (el.textContent || '').match(re); if (m) { page = m[0]; break; } }
+            }
+            return { clip, page };
+          })()`,
+          true,
+        ) as { clip?: string; page?: string | null } | null;
+        const value = pickCapturedKey(found?.clip ?? '', found?.page ?? null, keyRe);
+        if (!value) return;
+        captured = value;
+        win.setTitle(`${title}  ✓`);
+        setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 1_500);
+      } catch {
+        /* page navigating */
       }
-    };
-    win.webContents.on('did-navigate', onNav);
-    win.webContents.on('did-navigate-in-page', onNav);
+    }, 1_500);
     // Keep the window title ours: pages overwrite it otherwise.
     win.on('page-title-updated', (e) => e.preventDefault());
     win.on('closed', finish);
     win.loadURL(recipe.loginUrl).catch(() => {});
   });
+}
+
+/** Reads a token from a CLI the user already signed in to. */
+async function readLocalSource(kind: NonNullable<Recipe['localSource']>): Promise<string> {
+  if (kind === 'gh-cli') {
+    const out = await new Promise<string>((resolve, reject) => {
+      execFile('gh', ['auth', 'token'], { timeout: 15_000, windowsHide: true }, (err, stdout) => {
+        if (err) reject(new LoginRequiredError('GitHub CLI is not installed or not signed in (run "gh auth login")'));
+        else resolve(String(stdout));
+      });
+    });
+    return out.trim();
+  }
+  const home = os.homedir();
+  const candidates = [
+    process.env.HF_TOKEN_PATH,
+    process.env.HF_HOME ? path.join(process.env.HF_HOME, 'token') : undefined,
+    path.join(home, '.cache', 'huggingface', 'token'),
+  ].filter((p): p is string => Boolean(p));
+  if (process.env.HF_TOKEN) return process.env.HF_TOKEN.trim();
+  for (const file of candidates) {
+    try {
+      const v = fs.readFileSync(file, 'utf8').trim();
+      if (v) return v;
+    } catch {
+      /* next */
+    }
+  }
+  throw new LoginRequiredError('Hugging Face CLI is not signed in (run "hf auth login")');
 }
 
 export async function clearSession(recipe: Recipe): Promise<void> {

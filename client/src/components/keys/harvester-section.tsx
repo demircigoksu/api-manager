@@ -162,7 +162,7 @@ function RecipeRow({ recipe: r, bridge, onCredentials }: { recipe: HarvestRecipe
               {t('harvester.autoRefresh')}
             </label>
           )}
-          {r.mode !== 'keyless' && (
+          {r.mode !== 'keyless' && !r.localSource && (
             <>
               <Button size="xs" variant="ghost" onClick={onCredentials}>
                 {r.hasCredentials ? t('harvester.passwordSaved') : t('harvester.savePassword')}
@@ -184,7 +184,7 @@ function RecipeRow({ recipe: r, bridge, onCredentials }: { recipe: HarvestRecipe
                     : t('harvester.harvest')}
             </Button>
           )}
-          {r.state.signedInAt && r.mode !== 'keyless' && (
+          {r.state.signedInAt && r.mode !== 'keyless' && !r.localSource && (
             <ConfirmButton onConfirm={() => void bridge.logout(r.id)} title={t('harvester.logout')}>
               {t('harvester.logout')}
             </ConfirmButton>
@@ -200,7 +200,7 @@ function StatusLine({ recipe: r }: { recipe: HarvestRecipe }) {
   const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleString(locale) : '')
   const last = r.state.lastRun
   const parts: { text: string; tone: 'muted' | 'ok' | 'warn' }[] = []
-  if (r.mode !== 'keyless') {
+  if (r.mode !== 'keyless' && !r.localSource) {
     parts.push(r.state.signedInAt
       ? { text: t('harvester.sessionOpen', { at: fmt(r.state.signedInAt) }), tone: 'ok' }
       : { text: t('harvester.sessionNone'), tone: 'muted' })

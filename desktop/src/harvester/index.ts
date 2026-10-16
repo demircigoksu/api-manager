@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, Notification, safeStorage, session, shell, type IpcMainInvokeEvent } from 'electron';
-import { BUNDLED_RECIPES, mergeRecipes, parseRecipe } from './recipes.js';
+import { BUNDLED_RECIPES, mergeRecipes, normaliseCreatedKey, parseRecipe } from './recipes.js';
 import { CredentialStore, StateStore } from './store.js';
 import { KeySink } from './key-sink.js';
 import { LoginRequiredError, clearSession, openLoginWindow, runRecipe } from './engine.js';
@@ -95,6 +95,7 @@ export class Harvester {
       source: r.source ?? 'bundled',
       note: r.note,
       supportsAutoLogin: Boolean(r.autoLogin?.length),
+      localSource: r.localSource,
       hasCredentials: Boolean(this.credentials.email(r.id)),
       credentialEmail: this.credentials.email(r.id),
       running: this.running === r.id,
@@ -126,7 +127,27 @@ export class Harvester {
   async login(recipeId: string): Promise<RunResult | null> {
     const r = this.recipe(recipeId);
     const tr = this.deps.locale().startsWith('tr');
-    await openLoginWindow(r, tr ? `${r.name}: giriş yapın, bitince bu pencereyi kapatın` : `${r.name}: sign in, then close this window`);
+    const title = r.mode === 'auto'
+      ? (tr ? `${r.name}: giriş yapın, bitince bu pencereyi kapatın` : `${r.name}: sign in, then close this window`)
+      : (tr ? `${r.name}: giriş yapın, bir anahtar oluşturup Kopyala'ya basın` : `${r.name}: sign in, create a key and press Copy`);
+    const { capturedKey } = await openLoginWindow(r, title);
+    if (capturedKey) {
+      try {
+        const key = normaliseCreatedKey({ ...r, keyPattern: undefined }, capturedKey);
+        const { keyId, masked } = await this.sink.save(r, key);
+        const result: RunResult = { status: 'ok', keyId, masked, at: now() };
+        this.state.update(r.id, { lastRun: result, signedInAt: result.at });
+        this.broadcast();
+        console.log(`[harvester] ${r.id}: captured a key from the sign-in window (${masked})`);
+        return result;
+      } catch (err) {
+        const result: RunResult = { status: 'error', at: now(), message: errMsg(err) };
+        this.state.update(r.id, { lastRun: result });
+        this.broadcast();
+        return result;
+      }
+    }
+    if (r.localSource) return null;
     return this.checkSession(recipeId);
   }
 
