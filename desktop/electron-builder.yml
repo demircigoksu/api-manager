@@ -97,8 +97,11 @@ linux:
         - x64
 portable:
   artifactName: "${productName}-Portable-${version}.${ext}"
-  # No fixed unpackDirName: a second launch (which only wakes the running app)
-  # would unpack into, then clean up, the folder the first instance runs from.
+  # true = $PLUGINSDIR\app, a fresh temp folder per launch. The default (a
+  # build-time ksuid) is fixed: a second launch, which only wakes the running app,
+  # unpacked into and then deleted the folder the first instance runs from,
+  # so the dashboard went blank (404) after double-clicking the exe again.
+  unpackDirName: true
 nsis:
   # electron-builder's default NSIS name has spaces ("FreeLLMAPI Setup x.y.z.exe")
   # and latest.yml records it with dashes, while GitHub stores the upload with
