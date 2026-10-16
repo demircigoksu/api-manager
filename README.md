@@ -1,8 +1,9 @@
 > **Api Manager** is a fork of [tashfeenahmed/freellmapi](https://github.com/tashfeenahmed/freellmapi) (MIT) by [@demircigoksu](https://github.com/demircigoksu).
-> It adds a **Key Harvester** to the desktop app and a **single portable Windows .exe** (no installer, no Docker).
-> Everything below the line is the upstream README.
+> It adds a **Key Harvester**, a **Local** tab for LLM servers and CLIs on your computer, a Turkish UI and a **single portable Windows .exe** (no installer, no Docker).
+> The upstream Premium plan, licence keys and store links are removed; the model catalog sync can be turned off in Settings.
+> Everything below the line is the upstream README, trimmed to what applies to this fork.
 >
-> **Türkçe:** Bu depo, freellmapi'nin çatalıdır. Masaüstü uygulamasına **Anahtar Toplayıcı** ve **tek dosyalık taşınabilir Windows .exe** ekler.
+> **Türkçe:** Bu depo, freellmapi'nin çatalıdır. Masaüstü uygulamasına **Anahtar Toplayıcı**, bilgisayardaki yerel LLM sunucularını ve CLI araçlarını gösteren **Yerel** sekmesi, Türkçe arayüz ve **tek dosyalık taşınabilir Windows .exe** ekler. Premium ve lisans kısımları kaldırıldı; model kataloğu güncellemesi Ayarlar'dan kapatılabilir.
 
 ## Key Harvester / Anahtar Toplayıcı
 
@@ -41,30 +42,20 @@ It is not code-signed, so Windows SmartScreen may ask once ("More info" → "Run
 
 Aggregate free tiers from dozens of providers, plus custom OpenAI-compatible chat, embedding, image, and audio endpoints, behind a single `/v1` API. Keys are stored encrypted. A router picks the best available model for each request, falls over to the next provider when one is rate-limited, and tracks per-key usage so you stay under every free-tier cap.
 
-[![CI](https://github.com/tashfeenahmed/freellmapi/actions/workflows/ci.yml/badge.svg)](https://github.com/tashfeenahmed/freellmapi/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/tashfeenahmed/freellmapi?style=flat&logo=github&color=yellow)](https://github.com/tashfeenahmed/freellmapi/stargazers)
+[![Upstream](https://img.shields.io/badge/upstream-tashfeenahmed%2Ffreellmapi-lightgrey?logo=github)](https://github.com/tashfeenahmed/freellmapi)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
-[![Docker image](https://img.shields.io/badge/ghcr.io-freellmapi-2496ED?logo=docker&logoColor=white)](https://github.com/tashfeenahmed/freellmapi/pkgs/container/freellmapi)
-[![Ask DeepWiki](https://img.shields.io/badge/DeepWiki-Ask-blue)](https://deepwiki.com/tashfeenahmed/freellmapi)
-
-**[freellmapi.co](https://freellmapi.co/?utm_source=github&utm_medium=readme&utm_campaign=repository&utm_content=readme_top)** · browse the full catalog: 474 model families, 635 free endpoints
 
 **English** · [简体中文](README.zh-cn.md) · [Русский](README.ru.md)
 
 <p align="center">
-  <a href="https://github.com/tashfeenahmed/freellmapi/releases/latest"><img src="repo-assets/badges/macos.svg" height="48" alt="Download for macOS"></a>
-  <a href="https://github.com/tashfeenahmed/freellmapi/releases/latest"><img src="repo-assets/badges/windows.svg" height="48" alt="Download for Windows"></a>
-  <a href="docs/en/install/01-install.md#docker-compose"><img src="repo-assets/badges/docker.svg" height="48" alt="Self-host with Docker"></a>
-  <a href="https://play.google.com/store/apps/details?id=co.freellmapi.app"><img src="repo-assets/badges/play-store.svg" height="48" alt="Get it on Google Play"></a>
-  <a href="https://apps.apple.com/app/id6804648934"><img src="repo-assets/badges/app-store.svg" height="48" alt="Download on the App Store"></a>
+  <a href="https://github.com/demircigoksu/api-manager/releases/latest"><img src="repo-assets/badges/windows.svg" height="48" alt="Download for Windows"></a>
 </p>
 
 ![FreeLLMAPI dashboard — Models page with the monthly token budget](repo-assets/github-hero.png)
 
 
-Your router updates its own model catalog from a signed feed: new free models, quota changes, and compatibility fixes land without a `git pull`. Free installs get the monthly snapshot, so a model reaches them 30 days after it joins the live feed; premium routers get it the same day.
-**[Go live at freellmapi.co](https://freellmapi.co/?utm_source=github&utm_medium=readme&utm_campaign=premium&utm_content=readme_top#pricing)** ($19/yr, cancel anytime).
+Your router can update its own model catalog from a signed monthly feed, and **Fetch models** pulls each provider's current free models straight from its API. Both are optional.
 
 </div>
 
@@ -81,7 +72,7 @@ Your router updates its own model catalog from a signed feed: new free models, q
 - [Desktop app](#desktop-app)
 - [Works with OpenAI-compatible clients](#works-with-openai-compatible-clients)
 - [Languages](#languages)
-- [Premium (live catalog)](#premium-live-catalog)
+- [Model catalog](#model-catalog)
 - [Using the API](#using-the-api)
 - [Screenshots](#screenshots)
 - [How it works](#how-it-works)
@@ -98,7 +89,7 @@ Every serious AI lab now offers a free tier, a few million tokens a month, a few
 
 The problem is that stacking them by hand is painful: thirty-four different SDKs, thirty-four different rate limits, thirty-four places a request can fail. FreeLLMAPI collapses that into one OpenAI-compatible endpoint. Point any OpenAI client library at your local server, and it routes transparently across whichever providers you've added keys for.
 
-And the free-tier landscape shifts weekly: providers launch models, retire them, and change quotas without notice. FreeLLMAPI tracks all of that for you. The router pulls a signed model catalog from [freellmapi.co](https://freellmapi.co) on its own, so your install keeps up without a `git pull`. See [Premium (live catalog)](#premium-live-catalog) for how fast it keeps up.
+And the free-tier landscape shifts weekly: providers launch models, retire them, and change quotas without notice. FreeLLMAPI tracks all of that for you. The router can pull a signed model catalog on its own and read each provider's model list directly. See [Model catalog](#model-catalog).
 
 ![The free tier, stacked — ~7.4B tokens of free inference per month across 34 providers](repo-assets/free-tier.png)
 
@@ -185,7 +176,7 @@ Based on public documentation, July 2026 — corrections welcome.
 - **Smart routing, six strategies** — live per-model speed/capability/reliability scores rank your chain; automatic fallover retries the next model on 429/5xx with cooldowns and key rotation. [Routing in detail →](docs/en/architecture/00-high-level-index.md#how-it-works)
 - **Unified models & profiles** — the same model on several providers collapses into one entry with strict in-group failover; named fallback-chain profiles (a coding chain, a vision chain) switch from the dashboard or per request via `auto:<profile>`, and custom chains can be renamed in place from the chain manager.
 - **Per-key rate tracking** — RPM/RPD/TPM/TPD counters per `(platform, model, key)` that learn providers' reported ceilings, so routing always stays under every cap.
-- **Self-updating model catalog** — the router syncs a signed catalog from freellmapi.co twice a day: new models, quota changes, and provider quirk fixes land automatically. Free installs track the monthly snapshot, which each model joins 30 days after it lands in the live feed; premium routers get it same-day. [Premium →](#premium-live-catalog)
+- **Self-updating model catalog** — the router syncs the upstream signed monthly catalog twice a day, and providers with an identifiable free tier are also read directly from their own model list. The sync has an on/off switch in Settings. [Model catalog →](#model-catalog)
 - **Sticky sessions & context handoff** — conversations stay on one model for 30 minutes; an optional compact handoff note keeps the thread coherent when a mid-chat switch does happen. [Details →](docs/en/clients/01-agent-clients.md#context-handoff)
 - **Prompt compression (opt-in)** — a shared, fail-open request pipeline can deduplicate prompts, filter tool output, compact repeated JSON, and trim stale context before cache lookup and routing. [Details →](docs/en/compression/01-compression-pipeline.md)
 - **Encrypted keys, one token out** — provider keys are AES-256-GCM encrypted in SQLite and decrypted in-memory per request; your apps only ever see a single unified `freellmapi-…` bearer token.
@@ -198,17 +189,13 @@ The scope is deliberately narrow — see [what's not supported yet](docs/en/arch
 
 ## Quick start
 
-**One-liner** (Docker required — sets up `~/freellmapi`, generates an encryption key, pulls the image, and starts the container):
+**Windows:** download the portable `.exe` from this fork's [Releases](https://github.com/demircigoksu/api-manager/releases/latest) and run it. No installer and no Docker.
 
-```bash
-curl -fsSL https://freellmapi.co/install.sh | bash
-```
-
-Prefer to read before you pipe to bash? [The script is here](https://freellmapi.co/install.sh). Re-running it is safe: your `.env` (and encryption key) is preserved and the container updates to `:latest`.
+**Linux server or NAS (Docker):** clone this repository, create `.env` with an `ENCRYPTION_KEY` and run `docker compose up -d --build`. The image is built locally; see [docker/README.md](docker/README.md).
 
 Open http://localhost:3001, add your provider keys on the **Keys** page, reorder the **Fallback Chain** to taste, and grab your unified API key from the **Keys** page header. That unified key is what you point your OpenAI SDK at.
 
-On Windows, the easiest path is the desktop **[`.exe` installer from Releases](https://github.com/tashfeenahmed/freellmapi/releases/latest)** (below). On Android, see the experimental [Termux guide](docs/en/install/02-android-termux.md).
+On Android, see the experimental [Termux guide](docs/en/install/02-android-termux.md).
 
 Everything else — Docker Compose, local development, declarative startup config, production builds, LAN access, and backups — is in **[docs/en/install/01-install.md](docs/en/install/01-install.md)**.
 
@@ -218,9 +205,7 @@ A native menu-bar app lives in [`desktop/`](./desktop): the entire router + dash
 
 ![FreeLLMAPI desktop app](repo-assets/desktop.png)
 
-**[Download from Releases](https://github.com/tashfeenahmed/freellmapi/releases/latest)** — the macOS `.dmg` and the Windows `.exe` installer are attached to every release. No account or password to set up: the only credential you need is the unified API key from the tray popover. Build-from-source steps and where your data lives: [docs/en/install/01-install.md#desktop-app](docs/en/install/01-install.md#desktop-app).
-
-For macOS 12 Monterey or later, choose **arm64 (Apple Silicon)** or **x64 (Intel)**. Both Mac builds also include a ZIP download.
+**[Download from Releases](https://github.com/demircigoksu/api-manager/releases/latest)**: this fork ships the portable Windows `.exe`. No account or password to set up: the only credential you need is the unified API key from the tray popover. A macOS build can be made from source; steps and where your data lives: [docs/en/install/01-install.md#desktop-app](docs/en/install/01-install.md#desktop-app).
 
 ## Works with OpenAI-compatible clients
 
@@ -261,41 +246,23 @@ add a language, copy `en.json`, translate the values, and register the locale in
 strings); `npm test` checks every locale for key/placeholder parity — PRs
 welcome.
 
-## Premium (live catalog)
+## Model catalog
 
-The router keeps its model catalog fresh on its own: it pulls a signed catalog
-from [freellmapi.co](https://freellmapi.co) twice a day and applies new models,
-quota changes, and provider quirk fixes to your local DB. Your own
-enable/disable choices and custom providers are never touched, and every
-download is verified against a pinned Ed25519 key before it is applied.
+Two sources keep the model list current, and both can be left alone:
 
-The catalog currently tracks **34 providers**, **474 model families**, **635
-free provider/model endpoints** (584 chat, 41 embeddings, 7 transcription, 3
-video), and roughly **7.4 billion tokens per month** of listed free-tier
-capacity. Browse the full set at
-**[freellmapi.co/models](https://freellmapi.co/models.html)**.
+- **Signed catalog sync.** Twice a day the router downloads the upstream signed
+  monthly catalog (`api.freellmapi.co`), verifies it against a pinned Ed25519
+  key and applies new models, quota changes and provider quirk fixes. Your own
+  enable/disable choices and custom providers are never touched. Turn it off in
+  **⋯ → Settings → General → Model catalog updates** (or with
+  `CATALOG_SYNC_DISABLED=1`); the copy already downloaded keeps applying.
+- **Provider model discovery.** For providers whose free models can be told
+  apart (for example OpenRouter `:free` models, Groq, Cerebras, NVIDIA, GitHub
+  Models, Mistral, Cohere), the router reads the provider's own `/models` list
+  when you add a key or press **Fetch models**, so a new free model shows up
+  without waiting for the catalog.
 
-Free installs pull the same signed catalog, but from the monthly snapshot: a
-model joins it 30 days after it lands in the live feed, so the free build
-currently sits about 303 models behind. Nothing expires and nothing is
-crippled — it just arrives later.
-
-Premium keeps that signed catalog live on every router you run. When a provider
-launches a strong free model, quietly tightens a quota, or breaks a wire format,
-live-feed routers receive the update the same day we ship it.
-
-**[Go live at freellmapi.co →](https://freellmapi.co/?utm_source=github&utm_medium=readme&utm_campaign=premium&utm_content=readme_bottom#pricing)**
-
-- $19/year or $49 once, lifetime. Stripe checkout; cancel anytime, self-serve.
-- One `fla_` key covers every router you run: desktop, homelab, Raspberry Pi.
-- Activate in the dashboard under **Premium**; cancel or manage billing
-  self-serve at [freellmapi.co/manage](https://freellmapi.co/manage).
-- The router itself stays MIT-licensed and fully free, forever. Premium is only
-  the live feed, and it's what funds the daily model testing and catalog
-  maintenance that keeps the catalog working.
-
-The catalog server never sees your prompts, completions, or provider keys — the
-router stays fully self-hosted either way.
+The catalog server never sees your prompts, completions or provider keys.
 
 ## Using the API
 

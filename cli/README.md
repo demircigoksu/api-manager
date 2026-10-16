@@ -1,6 +1,6 @@
 # freellmapi
 
-Point your coding agent at a [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi)
+Point your coding agent at a [Api Manager](https://github.com/demircigoksu/api-manager) (a FreeLLMAPI fork)
 gateway in one command. The generators read the models your server is actually
 serving and write the config file each tool expects.
 
@@ -106,11 +106,11 @@ them into the child process environment for that run only.
 ## Requirements
 
 Node.js >= 20.18. A running FreeLLMAPI gateway
-([install guide](https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/install/01-install.md)).
+([install guide](https://github.com/demircigoksu/api-manager/blob/main/docs/en/install/01-install.md)).
 
 ## Links
 
-- [Clients & coding agents guide](https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/clients/01-agent-clients.md)
-- [Issue tracker](https://github.com/tashfeenahmed/freellmapi/issues)
+- [Clients & coding agents guide](https://github.com/demircigoksu/api-manager/blob/main/docs/en/clients/01-agent-clients.md)
+- [Issue tracker](https://github.com/demircigoksu/api-manager/issues)
 
 MIT © Tashfeen Ahmed

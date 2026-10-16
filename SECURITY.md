@@ -13,18 +13,15 @@ any of those are taken seriously. Thanks for reporting them responsibly.
 | 0.11.x and older | No |
 
 Fixes ship on the latest release line. There are no backported patch releases for
-older lines, so the fastest way to stay patched is to track `0.13.x` (Docker users:
-re-pull `:latest`).
+older lines, so the fastest way to stay patched is to run the latest release (Docker users:
+`git pull && docker compose up -d --build`).
 
 ## Reporting a vulnerability
 
 **Preferred:** GitHub private vulnerability reporting — go to the
-[Security tab](https://github.com/tashfeenahmed/freellmapi/security) and click
+[Security tab](https://github.com/demircigoksu/api-manager/security) and click
 **Report a vulnerability**. That opens a private thread with the maintainer and
 keeps the details out of public issues.
-
-**Alternate:** email **support@freellmapi.co** with `[freellmapi security]` in the
-subject.
 
 Please do not open a public issue, PR, or discussion for a security bug until a
 fix is out.
@@ -60,7 +57,7 @@ In scope:
 - The Electron desktop app and its local data directory.
 - The Docker image and packaging (`Dockerfile`, `docker-compose.yml`, the install
   script), including anything that leaks secrets into image layers or logs.
-- Premium license key validation and the signed catalog feed.
+- The signed catalog feed (signature checks and the Settings on/off switch).
 
 Out of scope:
 

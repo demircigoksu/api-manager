@@ -5,12 +5,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tashfeenahmed/freellmapi.git",
+    "url": "git+https://github.com/demircigoksu/api-manager.git",
     "directory": "cli"
   },
-  "homepage": "https://github.com/tashfeenahmed/freellmapi/tree/main/cli#readme",
+  "homepage": "https://github.com/demircigoksu/api-manager/tree/main/cli#readme",
   "bugs": {
-    "url": "https://github.com/tashfeenahmed/freellmapi/issues"
+    "url": "https://github.com/demircigoksu/api-manager/issues"
   },
   "keywords": [
     "freellmapi",

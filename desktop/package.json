@@ -3,11 +3,10 @@
   "version": "0.15.0",
   "description": "FreeLLMAPI menu-bar app \u2014 local OpenAI-compatible LLM router",
   "author": {
-    "name": "tashfeenahmed",
-    "email": "tashfene@gmail.com",
-    "url": "https://github.com/tashfeenahmed"
+    "name": "demircigoksu",
+    "url": "https://github.com/demircigoksu"
   },
-  "homepage": "https://freellmapi.co/",
+  "homepage": "https://github.com/demircigoksu/api-manager",
   "private": true,
   "type": "module",
   "main": "build/main.mjs",

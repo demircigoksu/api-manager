@@ -2,6 +2,8 @@
 
 # Catalog Sync — Deep Dive
 
+> **Api Manager fork:** there is no Premium/live tier and no licence key. The router only fetches the free monthly snapshot, sends no `Authorization` header and exposes `GET/PUT /api/catalog` plus `POST /api/catalog/sync` instead of `/api/premium`. The sync can be turned off in **Settings → General → Model catalog updates** (setting `catalog_sync_enabled`) or with `CATALOG_SYNC_DISABLED=1`. Free-tier platforms (OpenRouter, Kilo, Groq, Cerebras, Mistral, Zhipu) also discover their free models from their own `/models`; see `server/src/services/free-tier-discovery.ts`. Sections below that mention licences describe upstream behaviour.
+
 > **Source:** `server/src/services/catalog-sync.ts`, `server/src/services/model-state.ts`, `server/src/db/migrations/`
 
 ## 1. Overview
@@ -198,8 +200,8 @@ startCatalogSync(scheduler: Scheduler)
   └─ scheduler.every(12h, run)  // twice daily
 ```
 
-- `run()` = `refreshLicenseStatus()` + `syncCatalog()`
-- Kill switch: `CATALOG_SYNC_DISABLED=1`
+- `run()` = `syncCatalog()` when the Settings switch is on
+- Kill switch: `CATALOG_SYNC_DISABLED=1` (overrides the Settings switch)
 
 ---
 

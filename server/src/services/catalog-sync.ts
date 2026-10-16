@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { Db } from '../db/types.js';
 import { getDb, getSetting, setSetting } from '../db/index.js';
+import { isFreeTierDiscoveryPlatform } from './free-tier-discovery.js';
 import { hasProvider } from '../providers/index.js';
 import { MEDIA_PLATFORMS, TRANSCRIPTION_PLATFORMS, VIDEO_PLATFORMS } from './media.js';
 import { SEARCH_ENGINE_PLATFORMS, SEARCH_MODALITY } from './search.js';
@@ -26,9 +27,9 @@ const MEDIA_MODALITIES = new Set(['image', 'audio']);
  * catalog-sync — keeps the local model catalog in step with the published one.
  *
  * Twice a day (and on demand) the server pulls the signed catalog from the
- * catalog service. A valid Premium license key (Bearer) gets the live tier,
- * refreshed every 2-3 days; everyone else gets the monthly snapshot — so free
- * installs still self-heal, just on a slower cadence. The response is verified
+ * catalog service (the monthly snapshot). Api Manager fork: no license key is
+ * ever sent, and the sync can be switched off in Settings (catalog_sync_enabled);
+ * the last verified catalog is still re-applied at boot. The response is verified
  * against a pinned Ed25519 public key over the exact bytes received; anything
  * unsigned or tampered with is discarded, which means a compromised CDN or
  * MITM cannot inject models or quirks into the router.
@@ -58,8 +59,8 @@ const BOOT_DELAY_MS = 10 * 1000; // let the server settle before first sync
 const FETCH_TIMEOUT_MS = 20 * 1000;
 
 // settings table keys
-export const SETTING_LICENSE_KEY = 'premium_license_key';
-export const SETTING_LICENSE_STATUS = 'premium_license_status'; // JSON LicenseStatus
+/** '0' turns the network sync off (Settings > Model catalog). Default on. */
+export const SETTING_SYNC_ENABLED = 'catalog_sync_enabled';
 const SETTING_APPLIED_VERSION = 'catalog_applied_version';
 const SETTING_APPLIED_TIER = 'catalog_applied_tier';
 const SETTING_APPLIED_JSON = 'catalog_applied_json';
@@ -73,16 +74,6 @@ export function catalogBaseUrl(): string {
 function catalogPublicKey(): crypto.KeyObject {
   const pem = process.env.CATALOG_PUBKEY ? process.env.CATALOG_PUBKEY.replace(/\\n/g, '\n') : PINNED_CATALOG_PUBKEY;
   return crypto.createPublicKey({ key: pem, format: 'pem' });
-}
-
-export interface LicenseStatus {
-  valid: boolean;
-  plan: 'annual' | 'lifetime' | null;
-  status: string | null;
-  expiresAt: string | null;
-  cancelAtPeriodEnd?: boolean;
-  reason?: string;
-  checkedAtMs: number;
 }
 
 interface CatalogQuirk {
@@ -753,6 +744,9 @@ function applyCatalogInner(db: Db, catalog: Catalog): NonNullable<SyncResult['co
       .all(DISCOVERED_MODEL_SOURCE) as { id: number; platform: string }[];
     for (const d of discoveredRows) {
       if (!managed.has(d.platform)) continue;
+      // Api Manager: free-tier platforms keep their discovered rows next to
+      // the catalog's (see free-tier-discovery.ts).
+      if (isFreeTierDiscoveryPlatform(d.platform)) continue;
       deleteFb.run(d.id);
       deleteModel.run(d.id);
       counts.removed++;
@@ -890,12 +884,13 @@ function applyCatalogInner(db: Db, catalog: Catalog): NonNullable<SyncResult['co
  */
 export async function syncCatalog(force = false): Promise<SyncResult> {
   const db = getDb();
-  const key = getSetting(SETTING_LICENSE_KEY);
   const applied = getSetting(SETTING_APPLIED_VERSION);
+  if (!isCatalogSyncEnabled()) {
+    return { ok: false, action: 'error', detail: 'Catalog sync is turned off in Settings' };
+  }
 
   try {
     const headers: Record<string, string> = {};
-    if (key) headers.Authorization = `Bearer ${key}`;
     const url = new URL(`${catalogBaseUrl()}/v1/latest`);
     if (applied && !force) url.searchParams.set('since', applied);
 
@@ -958,68 +953,20 @@ export async function syncCatalog(force = false): Promise<SyncResult> {
   }
 }
 
-/** Raw response from the catalog service's license activation endpoint. */
-export interface LicenseActivation {
-  valid: boolean;
-  plan: string | null;
-  status: string | null;
-  expiresAt: string | null;
-  reason?: string;
+/** Whether the network sync may run (env kill switch and the Settings toggle). */
+export function isCatalogSyncEnabled(): boolean {
+  if (process.env.CATALOG_SYNC_DISABLED === '1') return false;
+  return getSetting(SETTING_SYNC_ENABLED) !== '0';
 }
 
-/**
- * Validate a key with the license service. Returns null when the service is
- * unreachable — distinguishable from a rejected key, so a transient outage can
- * be warned about instead of reported as a bad key. Shared by the dashboard's
- * POST /api/premium/key and declarative `license` config.
- */
-export async function validateLicenseKey(key: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<LicenseActivation | null> {
-  try {
-    const res = await fetch(`${catalogBaseUrl()}/v1/license/activate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    return (await res.json()) as LicenseActivation;
-  } catch {
-    return null;
-  }
-}
-
-/** Revalidate the stored license against the catalog service and cache the result. */
-export async function refreshLicenseStatus(): Promise<LicenseStatus | null> {
-  const key = getSetting(SETTING_LICENSE_KEY);
-  if (!key) return null;
-  try {
-    const res = await fetch(`${catalogBaseUrl()}/v1/license/check`, {
-      headers: { Authorization: `Bearer ${key}` },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok && res.status !== 401) throw new Error(`HTTP ${res.status}`);
-    const body = (await res.json()) as Omit<LicenseStatus, 'checkedAtMs'>;
-    const status: LicenseStatus = { ...body, checkedAtMs: Date.now() };
-    setSetting(SETTING_LICENSE_STATUS, JSON.stringify(status));
-    return status;
-  } catch (err) {
-    // Offline or service down: keep the cached status. Entitlement is enforced
-    // server-side at /v1/latest anyway — this cache is informational UI state.
-    console.warn(`[catalog-sync] license check unreachable: ${err instanceof Error ? err.message : err}`);
-    return getCachedLicenseStatus();
-  }
-}
-
-export function getCachedLicenseStatus(): LicenseStatus | null {
-  const raw = getSetting(SETTING_LICENSE_STATUS);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as LicenseStatus;
-  } catch {
-    return null;
-  }
+export function setCatalogSyncEnabled(enabled: boolean): void {
+  setSetting(SETTING_SYNC_ENABLED, enabled ? '1' : '0');
 }
 
 export interface CatalogSyncState {
+  enabled: boolean;
+  /** True when the env kill switch forces it off (the toggle cannot override). */
+  lockedOff: boolean;
   baseUrl: string;
   appliedVersion: string | null;
   appliedTier: string | null;
@@ -1029,6 +976,8 @@ export interface CatalogSyncState {
 
 export function getSyncState(): CatalogSyncState {
   return {
+    enabled: isCatalogSyncEnabled(),
+    lockedOff: process.env.CATALOG_SYNC_DISABLED === '1',
     baseUrl: catalogBaseUrl(),
     appliedVersion: getSetting(SETTING_APPLIED_VERSION) ?? null,
     appliedTier: getSetting(SETTING_APPLIED_TIER) ?? null,
@@ -1078,18 +1027,26 @@ let cancelInterval: (() => void) | null = null;
 
 export function startCatalogSync(scheduler: Scheduler): void {
   if (cancelInterval) return;
+  // The last verified catalog is re-applied even with the sync off, so a
+  // restart never drifts the model table back to the bundled baseline.
+  reapplyCachedCatalog();
   if (process.env.CATALOG_SYNC_DISABLED === '1') {
     console.log('[catalog-sync] disabled via CATALOG_SYNC_DISABLED=1');
     return;
   }
-  reapplyCachedCatalog();
+  // The timers always run; each tick checks the Settings toggle, so turning
+  // the sync back on needs no restart.
   const run = () => {
-    void refreshLicenseStatus();
+    if (!isCatalogSyncEnabled()) return;
     void syncCatalog();
   };
   cancelBootTimer = scheduler.after(BOOT_DELAY_MS, run);
   cancelInterval = scheduler.every(SYNC_INTERVAL_MS, run);
-  console.log(`[catalog-sync] polling ${catalogBaseUrl()} every ${SYNC_INTERVAL_MS / 3600000}h`);
+  console.log(
+    isCatalogSyncEnabled()
+      ? `[catalog-sync] polling ${catalogBaseUrl()} every ${SYNC_INTERVAL_MS / 3600000}h`
+      : '[catalog-sync] turned off in Settings (cached catalog re-applied)',
+  );
 }
 
 export function stopCatalogSync(): void {

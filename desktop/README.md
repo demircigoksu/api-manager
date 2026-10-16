@@ -1,16 +1,15 @@
-# FreeLLMAPI Desktop
+# Api Manager Desktop
 
-Lean Electron menu-bar app for [freellmapi](https://github.com/tashfeenahmed/freellmapi):
+Lean Electron menu-bar app for [Api Manager](https://github.com/demircigoksu/api-manager), a fork of [freellmapi](https://github.com/tashfeenahmed/freellmapi):
 runs the whole router locally on `127.0.0.1:31415`, with a dark-glass tray
 popover (live 24h request chart, quick stats, copy URL/key) and the full
 dashboard in a native-feeling window.
 
-Download an installer from [Releases](https://github.com/tashfeenahmed/freellmapi/releases/latest),
+Download the portable Windows `.exe` from [Releases](https://github.com/demircigoksu/api-manager/releases/latest),
 or build against the server and client sources in this checkout.
 
-On macOS, choose **arm64** for Apple Silicon (M-series) or **x64** for Intel.
-Both require **macOS 12 Monterey or later**. Each architecture has a DMG
-installer and a ZIP containing the app.
+A macOS build made from source supports **arm64** (Apple Silicon) and **x64**
+(Intel) on **macOS 12 Monterey or later**, as a DMG and a ZIP.
 
 ## Prerequisites
 

@@ -26,6 +26,7 @@ import { Tooltip } from '@/components/tooltip'
 import { SUPPORTED_LOCALES, type Locale, useI18n } from '@/i18n'
 import { type Theme, useTheme } from '@/theme-context'
 import { apiFetch } from '@/lib/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 // Small info affordance used next to labels a first-time user can't be expected
 // to understand. It's a real <button> so it reaches the tooltip by keyboard
@@ -545,6 +546,81 @@ function PreviewSection({ state }: { state: CompressionState }) {
   )
 }
 
+interface CatalogState {
+  enabled: boolean
+  lockedOff: boolean
+  appliedVersion: string | null
+  lastSyncMs: number | null
+  lastError: string | null
+}
+
+// Api Manager: the upstream model catalog (api.freellmapi.co) can add, disable
+// or retire models. This switch lets the user turn that network sync off; the
+// cached catalog keeps applying either way.
+function CatalogRow() {
+  const { t, locale } = useI18n()
+  const queryClient = useQueryClient()
+  const { data } = useQuery({
+    queryKey: ['catalog-sync'],
+    queryFn: () => apiFetch<CatalogState>('/api/catalog'),
+  })
+  const toggle = useMutation({
+    mutationFn: (enabled: boolean) => apiFetch<CatalogState>('/api/catalog', {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }),
+    onSuccess: next => queryClient.setQueryData(['catalog-sync'], next),
+  })
+  const checkNow = useMutation({
+    mutationFn: () => apiFetch<CatalogState>('/api/catalog/sync', { method: 'POST' }),
+    onSuccess: next => {
+      queryClient.setQueryData(['catalog-sync'], next)
+      queryClient.invalidateQueries({ queryKey: ['models'] })
+    },
+  })
+  const status = !data
+    ? t('common.loading')
+    : data.lockedOff
+      ? t('settings.catalogLockedOff')
+      : !data.enabled
+        ? t('settings.catalogOff')
+        : data.lastSyncMs
+          ? t('settings.catalogLastSync', {
+              when: new Date(data.lastSyncMs).toLocaleString(locale),
+              version: data.appliedVersion ?? '-',
+            })
+          : t('settings.catalogNever')
+
+  return (
+    <Row label={t('settings.catalogSync')} hint={t('settings.catalogSyncHelp')}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {status}
+          {data?.enabled && data.lastError ? <span className="block text-destructive">{data.lastError}</span> : null}
+        </p>
+        <div className="flex items-center gap-3">
+          {data?.enabled && !data.lockedOff && (
+            <button
+              type="button"
+              onClick={() => checkNow.mutate()}
+              disabled={checkNow.isPending}
+              className="rounded-lg border px-3 py-1.5 text-xs transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+            >
+              {checkNow.isPending ? t('common.loading') : t('settings.catalogCheckNow')}
+            </button>
+          )}
+          <Switch
+            aria-label={t('settings.catalogSync')}
+            checked={Boolean(data?.enabled)}
+            disabled={!data || data.lockedOff || toggle.isPending}
+            onCheckedChange={(checked: boolean) => toggle.mutate(checked)}
+          />
+        </div>
+      </div>
+    </Row>
+  )
+}
+
 function GeneralSection() {
   const { t } = useI18n()
   const { theme, setTheme } = useTheme()
@@ -572,6 +648,7 @@ function GeneralSection() {
           />
         )}
       />
+      <CatalogRow />
     </>
   )
 }

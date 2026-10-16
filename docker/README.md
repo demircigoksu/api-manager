@@ -1,6 +1,6 @@
 # Docker Guide
 
-Docker Compose is the recommended way to run FreeLLMAPI for personal use. The container serves the Express API and the built React dashboard from one process on port 3001, with SQLite persisted in a named volume.
+Api Manager is meant to run as the portable Windows app (see the main README). Docker Compose stays available for running the same server on a Linux box or NAS; it builds the image locally from this checkout, since the fork publishes no container image. The container serves the Express API and the built React dashboard from one process on port 3001, with SQLite persisted in a named volume.
 
 ## Prerequisites
 
@@ -57,16 +57,10 @@ Stop the app:
 docker compose down
 ```
 
-Update to the latest GHCR image after a release:
+Update after a new release:
 
 ```bash
-docker compose pull
-docker compose up -d
-```
-
-Rebuild locally from source:
-
-```bash
+git pull
 docker compose up -d --build
 ```
 
@@ -91,7 +85,6 @@ Example `freellmapi.config.json`:
 ```json
 {
   "admin": { "email": "ops@example.com", "password": "change-me-min-8-chars" },
-  "license": "premium license key from freellmapi.co",
   "keys": [
     { "platform": "groq", "key": "gsk_...", "label": "main" }
   ],
@@ -109,17 +102,6 @@ Example `freellmapi.config.json`:
 ```
 
 The optional `admin` entry creates the first dashboard account while no account
-exists (ignored with a warning afterwards — a claimed install can't be taken
-over by config), and `license` activates a Premium key against the license
-service in the background. Both fields are optional; the file carries plaintext
-secrets, so protect it like `ENCRYPTION_KEY`.
-
-## Published Image
-
-Images are published to GitHub Container Registry:
-
-```bash
-docker pull ghcr.io/tashfeenahmed/freellmapi:latest
-```
-
-The Docker workflow builds pull requests without pushing. After this repository receives the workflow on `main`, pushes to `main` and version tags publish images to GHCR automatically.
+exists (ignored with a warning afterwards, so a claimed install can't be taken
+over by config). It is optional; the file carries plaintext secrets, so protect
+it like `ENCRYPTION_KEY`. A `license` entry from upstream configs is ignored.

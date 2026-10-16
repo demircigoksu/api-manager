@@ -1,19 +1,13 @@
 import fs from 'fs';
 import { z } from 'zod';
 import type { Db } from '../db/types.js';
-import { getDb, getSetting, setSetting } from '../db/index.js';
+import { getDb } from '../db/index.js';
 import { encrypt } from '../lib/crypto.js';
 import { resolveProvider } from '../providers/index.js';
 import { setCustomWeights, setRoutingStrategy, setKeySelectionStrategy } from './router.js';
 import { ensureModelInProfiles } from './profile-models.js';
 import { customModelSeed } from './custom-model-seed.js';
 import { createUser, userCount } from './auth.js';
-import {
-  SETTING_LICENSE_KEY,
-  refreshLicenseStatus,
-  syncCatalog,
-  validateLicenseKey,
-} from './catalog-sync.js';
 import { endpointRefMatches, endpointScopeForBaseUrl } from '../lib/endpoint-scope.js';
 import {
   clearCatalogModelTombstone,
@@ -97,9 +91,9 @@ const adminSchema = z.object({
 
 const declarativeConfigSchema = z.object({
   admin: adminSchema.optional(),
-  // Premium license key (freellmapi.co). Same minimum as the dashboard's
-  // POST /api/premium/key length gate.
-  license: z.string().min(8).optional(),
+  // Upstream Premium license key. Api Manager has no license service: the
+  // field is still accepted so existing config files keep loading, and ignored.
+  license: z.string().optional(),
   keys: z.array(keySchema).optional(),
   customProviders: z.array(customProviderSchema).optional(),
   models: z.array(modelSchema).optional(),
@@ -525,45 +519,10 @@ export function applyDeclarativeConfig(input: unknown, source = 'inline'): Decla
   });
   apply();
 
-  // License activation needs the license service — network I/O has no place in
-  // the synchronous DB apply. It runs detached so a slow or unreachable
-  // service never delays boot; a failure logs a warning and leaves settings
-  // untouched, the same contract as the dashboard's POST /api/premium/key.
   if (parsed.data.license) {
-    result.license = true;
-    void activateConfiguredLicense(parsed.data.license);
+    result.warnings.push('license: ignored (Api Manager has no Premium license service)');
   }
   return result;
-}
-
-/**
- * Activate a Premium license key from declarative config. Idempotent across
- * boots: a stored key identical to the configured one short-circuits before
- * any network call, while a different key re-activates (rotation). Exported
- * for tests.
- */
-export async function activateConfiguredLicense(key: string): Promise<void> {
-  const trimmed = key.trim();
-  try {
-    if (getSetting(SETTING_LICENSE_KEY) === trimmed) return;
-    const result = await validateLicenseKey(trimmed);
-    if (result === null) {
-      console.warn('[config] license: could not reach the license service — key left unconfigured');
-      return;
-    }
-    if (!result.valid) {
-      console.warn(`[config] license: key rejected (${result.reason ?? 'invalid'}) — left unconfigured`);
-      return;
-    }
-    setSetting(SETTING_LICENSE_KEY, trimmed);
-    await refreshLicenseStatus();
-    // Live-tier sync kicks off right away so the upgrade is visible within
-    // seconds; its own catch-all logs failures.
-    void syncCatalog(true);
-    console.log('[config] license activated — live catalog sync started');
-  } catch (err) {
-    console.warn(`[config] license activation failed: ${err instanceof Error ? err.message : err}`);
-  }
 }
 
 export function applyDeclarativeConfigFromEnv(): DeclarativeConfigResult {

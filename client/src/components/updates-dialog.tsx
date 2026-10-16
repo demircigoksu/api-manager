@@ -26,7 +26,7 @@ function isNetworkError(message: string): boolean {
   return /ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ERR_NETWORK|ERR_CONNECTION|ENOTFOUND|EAI_AGAIN|ENETUNREACH|ECONNREFUSED|ECONNRESET|ETIMEDOUT|getaddrinfo|network/i.test(message)
 }
 
-const DOCKER_COMMAND = 'docker compose pull && docker compose up -d'
+const DOCKER_COMMAND = 'git pull && docker compose up -d --build'
 const SOURCE_COMMAND = 'git fetch https://github.com/demircigoksu/api-manager.git main && git merge --ff-only FETCH_HEAD && npm ci && npm run build'
 
 /**

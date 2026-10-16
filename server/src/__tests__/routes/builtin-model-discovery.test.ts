@@ -95,12 +95,20 @@ describe('built-in provider model discovery routes (#1348)', () => {
   });
 
   it('refuses a catalog-managed built-in provider without calling it', async () => {
-    const key = await addKey(app, 'groq');
+    const key = await addKey(app, 'nvidia');
     const mock = stubProvider(['llama']);
     const { status, body } = await post(app, DISCOVER, { keyId: key.id });
     expect(status).toBe(400);
     expect(body.error.message).toMatch(/come from the catalog/);
     expect(mock).not.toHaveBeenCalled();
+  });
+
+  it('lists only the free models of a free-tier provider the catalog manages', async () => {
+    const key = await addKey(app, 'openrouter', 'sk-or');
+    stubProvider(['vendor/model:free', 'vendor/model', 'other/model:free']);
+    const { status, body } = await post(app, DISCOVER, { keyId: key.id });
+    expect(status).toBe(200);
+    expect(body.models.map((m: any) => m.id).sort()).toEqual(['other/model:free', 'vendor/model:free']);
   });
 
   it('refuses a Premium-gated provider (catalog rows not yet free) without calling it', async () => {
@@ -127,22 +135,22 @@ describe('built-in provider model discovery routes (#1348)', () => {
   });
 
   it('refuses registration for ineligible and custom keys', async () => {
-    const groq = await addKey(app, 'groq');
-    expect((await post(app, REGISTER, { keyId: groq.id, models: ['x'] })).status).toBe(400);
+    const nv = await addKey(app, 'nvidia');
+    expect((await post(app, REGISTER, { keyId: nv.id, models: ['x'] })).status).toBe(400);
     const custom = getDb().prepare(`
       INSERT INTO api_keys (platform, label, encrypted_key, iv, auth_tag, status, enabled, base_url)
       VALUES ('custom', '', 'e', 'i', 't', 'healthy', 1, 'http://127.0.0.1:9/v1')
     `).run();
     expect((await post(app, REGISTER, { keyId: Number(custom.lastInsertRowid), models: ['x'] })).status).toBe(400);
-    expect(modelRows('groq').some(r => r.model_id === 'x')).toBe(false);
+    expect(modelRows('nvidia').some(r => r.model_id === 'x')).toBe(false);
   });
 
   it('flags discoverable key rows for the dashboard', async () => {
     await addKey(app, 'siliconflow');
-    await addKey(app, 'groq');
+    await addKey(app, 'nvidia');
     const { body } = await request(app, 'GET', '/api/keys');
     const byPlatform = Object.fromEntries(body.map((k: any) => [k.platform, k.modelDiscovery]));
-    expect(byPlatform).toMatchObject({ siliconflow: true, groq: false });
+    expect(byPlatform).toMatchObject({ siliconflow: true, nvidia: false });
   });
 
   it('on key save, explains the discovery instead of the Premium advice and fetches in the background', async () => {

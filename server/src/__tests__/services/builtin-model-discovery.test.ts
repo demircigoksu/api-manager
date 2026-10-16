@@ -12,6 +12,7 @@ import {
   triggerBuiltinModelDiscovery,
 } from '../../services/builtin-model-discovery.js';
 import { applyCatalog } from '../../services/catalog-sync.js';
+import { FREE_TIER_DISCOVERY, filterFreeTier } from '../../services/free-tier-discovery.js';
 import { recordCatalogModelTombstone, isCatalogManagedModel } from '../../services/model-state.js';
 
 // #1348: built-in OpenAI-compatible providers the signed catalog carries no
@@ -110,7 +111,7 @@ describe('built-in model discovery (#1348)', () => {
       expect(builtinDiscoveryEligibility(db, 'siliconflow').eligible).toBe(true);
       expect(builtinDiscoveryEligibility(db, 'longcat').eligible).toBe(true);
       // Catalog-managed providers are never discoverable, whatever their state.
-      expect(builtinDiscoveryEligibility(db, 'groq')).toMatchObject({ eligible: false, reason: 'not_allowlisted' });
+      expect(builtinDiscoveryEligibility(db, 'nvidia')).toMatchObject({ eligible: false, reason: 'not_allowlisted' });
       expect(builtinDiscoveryEligibility(db, 'custom').eligible).toBe(false);
     });
 
@@ -252,6 +253,64 @@ describe('built-in model discovery (#1348)', () => {
     });
   });
 
+  // Api Manager fork: providers whose free models can be told apart are
+  // discovered next to the catalog, filtered by their free rule.
+  describe('free-tier platforms', () => {
+    it('are eligible even though the catalog manages them', () => {
+      const db = getDb();
+      for (const platform of ['groq', 'openrouter', 'cerebras', 'mistral', 'kilo']) {
+        expect(builtinDiscoveryEligibility(db, platform).eligible).toBe(true);
+      }
+    });
+
+    it('apply each platform\'s free rule', () => {
+      const ids = (platform: string, list: string[]) => filterFreeTier(platform, list.map(id => ({ id }))).map(m => m.id);
+      expect(ids('openrouter', ['a/b:free', 'a/b', 'c/d:free'])).toEqual(['a/b:free', 'c/d:free']);
+      expect(ids('kilo', ['x:free', 'x'])).toEqual(['x:free']);
+      expect(ids('groq', ['llama-3.3-70b-versatile', 'meta-llama/llama-guard-4-12b', 'whisper-large-v3', 'playai-tts'])).toEqual(['llama-3.3-70b-versatile']);
+      expect(ids('mistral', ['mistral-large-latest', 'mistral-large-2411', 'mistral-ocr-latest', 'mistral-embed'])).toEqual(['mistral-large-latest']);
+      expect(ids('zhipu', ['glm-4.5-flash', 'glm-4-flashx', 'glm-4.6', 'cogview-3-flash'])).toEqual(['glm-4.5-flash']);
+      // A platform without a rule passes through.
+      expect(ids('siliconflow', ['a', 'b'])).toEqual(['a', 'b']);
+      expect(Object.keys(FREE_TIER_DISCOVERY)).not.toContain('nvidia');
+    });
+
+    it('run automatically in the default manual mode and register only free models', async () => {
+      delete process.env.BUILTIN_MODEL_DISCOVERY;
+      addKey('openrouter', 'sk-or');
+      const mock = stubModels([
+        { id: 'new/model:free', pricing: { prompt: '0', completion: '0' } },
+        { id: 'new/paid-model', pricing: { prompt: '0.000001', completion: '0.000002' } },
+      ]);
+      const result = await runBuiltinModelDiscovery(getDb(), 'openrouter');
+      expect(mock).toHaveBeenCalled();
+      expect(result.added).toBe(1);
+      const ids = rows('openrouter').filter(r => r.source === 'discovered').map(r => r.model_id);
+      expect(ids).toEqual(['new/model:free']);
+    });
+
+    it('leave the catalog\'s own rows untouched', async () => {
+      delete process.env.BUILTIN_MODEL_DISCOVERY;
+      const db = getDb();
+      const before = rows('groq').filter(r => r.source === 'catalog');
+      expect(before.length).toBeGreaterThan(0);
+      addKey('groq');
+      stubModels([before[0]!.model_id, 'brand-new-model']);
+      const result = await runBuiltinModelDiscovery(db, 'groq');
+      expect(result.added).toBe(1);
+      expect(result.skipped).toBe(1);
+      expect(rows('groq').find(r => r.model_id === before[0]!.model_id)).toMatchObject({ source: 'catalog' });
+    });
+
+    it('stay off when discovery is switched off', async () => {
+      process.env.BUILTIN_MODEL_DISCOVERY = 'off';
+      addKey('groq');
+      const mock = stubModels(['x']);
+      expect((await runBuiltinModelDiscovery(getDb(), 'groq')).platforms).toBe(0);
+      expect(mock).not.toHaveBeenCalled();
+    });
+  });
+
   describe('catalog precedence on sync', () => {
     function stripCatalogRows(): AnyCatalog['models'] {
       // Keep every baseline catalog row so the apply only exercises the rows under test.
@@ -280,6 +339,13 @@ describe('built-in model discovery (#1348)', () => {
       registerDiscoveredModels(db, 'longcat', [{ modelId: 'a' }], { explicit: false });
       applyCatalog(db, catalogOf(stripCatalogRows(), { managedPlatforms: ['longcat'] }));
       expect(rows('longcat')).toEqual([]);
+    });
+
+    it('keeps discovered rows on a free-tier platform the catalog manages', () => {
+      const db = getDb();
+      registerDiscoveredModels(db, 'groq', [{ modelId: 'fresh-free-model' }], { explicit: false });
+      applyCatalog(db, catalogOf(stripCatalogRows()));
+      expect(rows('groq').find(r => r.model_id === 'fresh-free-model')).toMatchObject({ source: 'discovered' });
     });
 
     it('keeps a local disable when the catalog adopts a discovered row', () => {

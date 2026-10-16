@@ -6,7 +6,6 @@ import path from 'path';
 import { getDb } from '../db/index.js';
 import { resolveProvider, getAllProviders } from '../providers/index.js';
 import { OpenAICompatProvider, isAnonymousCredential } from '../providers/openai-compat.js';
-import { getSyncState } from '../services/catalog-sync.js';
 import { encrypt, decrypt, maskKey } from '../lib/crypto.js';
 import { parseKeysFromFile, stripJsoncComments, stripTrailingCommas } from '../lib/key-parser.js';
 import { assessProviderUrl } from '../lib/url-guard.js';
@@ -22,8 +21,8 @@ import { probeEmbeddingDimensions, registerCustomEmbeddingModel } from '../servi
 import { endpointScopeForBaseUrl, normalizeBaseUrl } from '../lib/endpoint-scope.js';
 import { recordCustomModelTombstone } from '../services/custom-model-tombstone.js';
 import {
+  autoDiscoveryAllowed,
   builtinDiscoveryEligibility,
-  builtinDiscoveryMode,
   discoverBuiltinModels,
   ineligibleMessage,
   isBuiltinDiscoveryEligible,
@@ -266,7 +265,7 @@ function noModelsNotice(platform: string): string | undefined {
   // from its own /models, so the Premium and custom-provider advice below
   // would send the operator the wrong way.
   if (isBuiltinDiscoveryEligible(getDb(), platform)) {
-    return builtinDiscoveryMode() === 'auto'
+    return autoDiscoveryAllowed(platform)
       ? `Key saved. The catalog does not list ${platform} models, so they are being fetched from ${platform}'s own model list. ` +
         `Use Fetch models on the key to review them or add more.`
       : `Key saved. The catalog does not list ${platform} models. Use Fetch models on the key to pick which ones to use.`;
@@ -275,19 +274,9 @@ function noModelsNotice(platform: string): string | undefined {
   const customRoute = baseUrl
     ? `add ${platform} as a custom OpenAI-compatible provider with base URL ${baseUrl}`
     : null;
-  const premium = getSyncState().appliedTier === 'live';
-  if (premium) {
-    return (
-      `Key saved, but your Premium catalog does not list any ${platform} models yet. ` +
-      `Try Check for updates on the Premium page to pull the latest catalog` +
-      (customRoute ? `, or ${customRoute}.` : '.')
-    );
-  }
   return (
     `Key saved, but no ${platform} models are in your current catalog yet. ` +
-    `Newer providers are published to the premium catalog first and appear ` +
-    `for free-tier installs once they age into the monthly catalog. ` +
-    `Add a Premium license key to use them now` +
+    `Use Fetch models on the key to pull them from ${platform}'s own model list` +
     (customRoute ? `, or ${customRoute}.` : '.')
   );
 }

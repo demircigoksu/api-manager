@@ -1054,7 +1054,7 @@ const metadata = [
   ['pi', 'Pi', 'code', 'file', 'OpenAI Chat', '/v1', 'setup-pi', 'https://pi.dev/docs/latest/models', pi],
   ['reasonix', 'Reasonix', 'code', 'file', 'OpenAI Chat', '/v1', 'setup-reasonix', 'https://github.com/esengine/DeepSeek-Reasonix/blob/studio/docs/CLI.md#configure-providers', reasonix],
   ['cursor', 'Cursor', 'code', 'guide', 'OpenAI Chat', '/v1', 'setup-cursor', 'https://docs.cursor.com', cursor],
-  ['generic', 'Generic OpenAI client', 'agent', 'guide', 'OpenAI Chat', '/v1', 'setup-generic', 'https://github.com/tashfeenahmed/freellmapi', generic],
+  ['generic', 'Generic OpenAI client', 'agent', 'guide', 'OpenAI Chat', '/v1', 'setup-generic', 'https://github.com/demircigoksu/api-manager', generic],
 ] as const;
 
 export const tools: ToolDefinition[] = metadata.map(([

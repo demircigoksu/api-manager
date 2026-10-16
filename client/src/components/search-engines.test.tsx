@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // #1174: Models → Search lists the catalog's search engines in failover order,
-// marks the first enabled one as default, badges Premium-first rows with the
-// day they reach Free, and promotes an engine with PATCH priority 0.
+// marks the first enabled one as default, never shows a Premium badge (Api
+// Manager fork) and promotes an engine with PATCH priority 0.
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -63,10 +63,11 @@ it('lists engines in priority order and marks the first enabled one as default',
   expect(container.textContent).toContain('3 req today')
 })
 
-it('badges a Premium-first engine with the day it reaches Free', async () => {
+it('shows no Premium badge even when the catalog row carries premiumSince', async () => {
   const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
   await mount([engine({ id: 3, platform: 'firecrawl', engineId: 'firecrawl-search', displayName: 'Firecrawl', premiumSince: since })])
-  expect(container.textContent).toMatch(/Premium · free from/)
+  expect(container.textContent).toContain('Firecrawl')
+  expect(container.textContent).not.toMatch(/Premium/)
 })
 
 it('promotes an engine to default with priority 0', async () => {

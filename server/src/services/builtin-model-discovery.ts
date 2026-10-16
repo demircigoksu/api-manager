@@ -12,6 +12,7 @@ import { clearCatalogModelTombstone, isCatalogModelTombstoned } from './model-st
 import { customModelSeed } from './custom-model-seed.js';
 import { ensureModelInProfiles } from './profile-models.js';
 import { customModelSyncFreePatterns, customModelSyncIntervalMs } from './custom-model-sync.js';
+import { FREE_TIER_DISCOVERY, filterFreeTier, isFreeTierDiscoveryPlatform } from './free-tier-discovery.js';
 
 // ── Model discovery for built-in providers the catalog does not carry (#1348) ──
 //
@@ -57,6 +58,22 @@ export const BUILTIN_DISCOVERY_PLATFORMS: readonly Platform[] = ['github', 'long
  *  to models that cost money. */
 export type BuiltinDiscoveryMode = 'auto' | 'manual' | 'off';
 
+/** Every platform discovery may run on: the catalog-gap allowlist above plus
+ *  the Api Manager free-tier platforms (see free-tier-discovery.ts). */
+export function discoveryPlatforms(): string[] {
+  return [...new Set<string>([...BUILTIN_DISCOVERY_PLATFORMS, ...Object.keys(FREE_TIER_DISCOVERY)])];
+}
+
+/** Whether automatic passes (key saved, scheduled sync) may run for this
+ *  platform. 'auto' allows every eligible platform. The default 'manual' still
+ *  allows the free-tier platforms, because their free rule decides what gets
+ *  registered, so no paid model can slip in. 'off' allows none. */
+export function autoDiscoveryAllowed(platform: string): boolean {
+  const mode = builtinDiscoveryMode();
+  if (mode === 'auto') return true;
+  return mode === 'manual' && isFreeTierDiscoveryPlatform(platform);
+}
+
 export function builtinDiscoveryMode(): BuiltinDiscoveryMode {
   const raw = process.env.BUILTIN_MODEL_DISCOVERY?.trim().toLowerCase();
   if (raw === 'auto' || raw === 'off') return raw;
@@ -76,12 +93,15 @@ export interface DiscoveryEligibility {
 /** Whether `platform` may fill its model list from its own /models. */
 export function builtinDiscoveryEligibility(db: Db, platform: string): DiscoveryEligibility {
   if (builtinDiscoveryMode() === 'off') return { eligible: false, reason: 'disabled' };
-  if (!(BUILTIN_DISCOVERY_PLATFORMS as readonly string[]).includes(platform)) {
+  const freeTier = isFreeTierDiscoveryPlatform(platform);
+  if (!freeTier && !(BUILTIN_DISCOVERY_PLATFORMS as readonly string[]).includes(platform)) {
     return { eligible: false, reason: 'not_allowlisted' };
   }
   const provider = getProvider(platform as Platform);
   if (!(provider instanceof OpenAICompatProvider)) return { eligible: false, reason: 'not_openai_compatible' };
-  if (appliedCatalogPlatforms(db).has(platform) || hasCatalogOwnedRows(db, platform)) {
+  // Free-tier platforms coexist with the catalog: its rows win on every
+  // collision because registration is INSERT-only.
+  if (!freeTier && (appliedCatalogPlatforms(db).has(platform) || hasCatalogOwnedRows(db, platform))) {
     return { eligible: false, reason: 'catalog_managed' };
   }
   return { eligible: true, provider };
@@ -134,7 +154,9 @@ export async function discoverBuiltinModels(
   apiKeyOverride?: string,
 ): Promise<DiscoveredModel[]> {
   const apiKey = apiKeyOverride?.trim() || decrypt(key.encrypted_key, key.iv, key.auth_tag);
-  return withKeyProxy(decryptProxyUrl(key), () => discoverProviderModels(provider, apiKey, provider.modelsUrl.replace(/\/models\/?$/, '')));
+  const models = await withKeyProxy(decryptProxyUrl(key), () => discoverProviderModels(provider, apiKey, provider.modelsUrl.replace(/\/models\/?$/, '')));
+  // Free-tier platforms only ever offer the models their free rule accepts.
+  return filterFreeTier(key.platform, models);
 }
 
 /** Discovered model ids already present on this platform, in any provenance. */
@@ -280,10 +302,9 @@ export async function runBuiltinModelDiscovery(db: Db, only?: string): Promise<B
   const result: BuiltinDiscoveryResult = {
     platforms: 0, added: 0, skipped: 0, tombstoned: 0, nonChatSkipped: 0, paidSkipped: 0, failures: [],
   };
-  if (builtinDiscoveryMode() !== 'auto') return result;
-
-  const platforms = only ? [only] : [...BUILTIN_DISCOVERY_PLATFORMS];
+  const platforms = only ? [only] : discoveryPlatforms();
   for (const platform of platforms) {
+    if (!autoDiscoveryAllowed(platform)) continue;
     const eligibility = builtinDiscoveryEligibility(db, platform);
     if (!eligibility.eligible || !eligibility.provider) continue;
     const keys = usableKeys(db, platform);
@@ -331,8 +352,14 @@ export function triggerBuiltinModelDiscovery(
   platform: string,
   reason: 'key_added' | 'healthy',
 ): Promise<BuiltinDiscoveryResult> | null {
-  if (builtinDiscoveryMode() !== 'auto') return null;
-  if (!isBuiltinDiscoveryEligible(db, platform)) return null;
+  if (!autoDiscoveryAllowed(platform)) return null;
+  // Callers (the health check) fire and forget: an eligibility failure must
+  // never surface as an error in the caller's own work.
+  try {
+    if (!isBuiltinDiscoveryEligible(db, platform)) return null;
+  } catch {
+    return null;
+  }
   const pending = inFlight.get(platform);
   if (pending) return pending;
   if (reason === 'healthy') {
@@ -362,6 +389,6 @@ export function resetBuiltinDiscoveryThrottle(): void {
  *  daily by default; 0 disables both). */
 export function startBuiltinModelDiscovery(db: Db, scheduler: Scheduler): (() => void) | null {
   const intervalMs = customModelSyncIntervalMs();
-  if (intervalMs <= 0 || builtinDiscoveryMode() !== 'auto') return null;
+  if (intervalMs <= 0 || builtinDiscoveryMode() === 'off') return null;
   return scheduler.every(intervalMs, () => { void runBuiltinModelDiscovery(db); }, { name: 'builtin-model-discovery' });
 }

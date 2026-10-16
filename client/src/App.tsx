@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ChevronDown, KeyRound, LogOut, Menu, MoreHorizontal, RefreshCw, Search, Settings, Sparkles } from 'lucide-react'
+import { ChevronDown, KeyRound, LogOut, Menu, MoreHorizontal, RefreshCw, Search, Settings } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -168,27 +168,21 @@ if (isDesktopApp) {
 }
 
 function AccountMenuItems({
-  showUpgrade,
-  upgradeLabel,
   settingsLabel,
   updatesLabel,
   signOutLabel,
   changeEmailLabel,
   changePasswordLabel,
-  onUpgrade,
   onOpenSettings,
   onOpenUpdates,
   onChangeEmail,
   onChangePassword,
 }: {
-  showUpgrade: boolean
-  upgradeLabel: string
   settingsLabel: string
   updatesLabel: string
   signOutLabel: string
   changeEmailLabel: string
   changePasswordLabel: string
-  onUpgrade: () => void
   onOpenSettings: () => void
   onOpenUpdates: () => void
   onChangeEmail: () => void
@@ -196,12 +190,6 @@ function AccountMenuItems({
 }) {
   return (
     <>
-      {showUpgrade && (
-        <DropdownMenuItem onClick={onUpgrade}>
-          <Sparkles />
-          {upgradeLabel}
-        </DropdownMenuItem>
-      )}
       <DropdownMenuItem onClick={onOpenSettings}>
         <Settings />
         {settingsLabel}
@@ -246,9 +234,6 @@ function Navbar() {
     return () => window.removeEventListener(OPEN_UPDATES_EVENT, open)
   }, [])
   const [credentialsMode, setCredentialsMode] = useState<'password' | 'email' | null>(null)
-  // Api Manager fork: no Premium sales page or upgrade button (the upstream
-  // author's paid catalog feed). The monthly free catalog keeps syncing.
-  const showUpgrade = false
 
   return (
     <>
@@ -322,14 +307,11 @@ function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <AccountMenuItems
-                  showUpgrade={showUpgrade}
-                  upgradeLabel={t('nav.upgrade')}
                   settingsLabel={t('nav.settings')}
                   updatesLabel={t('settings.checkForUpdates')}
                   signOutLabel={t('nav.signOut')}
                   changeEmailLabel={t('auth.changeEmail')}
                   changePasswordLabel={t('auth.changePassword')}
-                  onUpgrade={() => navigate('/premium')}
                   onOpenSettings={() => setSettingsOpen(true)}
                   onOpenUpdates={() => setUpdatesOpen(true)}
                   onChangeEmail={() => setCredentialsMode('email')}
@@ -378,14 +360,11 @@ function Navbar() {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <AccountMenuItems
-                  showUpgrade={showUpgrade}
-                  upgradeLabel={t('nav.upgrade')}
                   settingsLabel={t('nav.settings')}
                   updatesLabel={t('settings.checkForUpdates')}
                   signOutLabel={t('nav.signOut')}
                   changeEmailLabel={t('auth.changeEmail')}
                   changePasswordLabel={t('auth.changePassword')}
-                  onUpgrade={() => navigate('/premium')}
                   onOpenSettings={() => setSettingsOpen(true)}
                   onOpenUpdates={() => setUpdatesOpen(true)}
                   onChangeEmail={() => setCredentialsMode('email')}

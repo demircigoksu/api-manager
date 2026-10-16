@@ -21,7 +21,7 @@ import { analyticsRouter } from './routes/analytics.js';
 import { healthRouter } from './routes/health.js';
 import { freeTierRouter } from './routes/free-tier.js';
 import { settingsRouter } from './routes/settings.js';
-import { premiumRouter } from './routes/premium.js';
+import { catalogRouter } from './routes/catalog.js';
 import { backupsRouter } from './routes/backups.js';
 import { cacheRouter } from './routes/cache.js';
 import { compressionRouter } from './routes/compression.js';
@@ -264,7 +264,7 @@ export function createApp(config?: Config) {
   app.use('/api/health', requireAuth, healthRouter);
   app.use('/api/free-tier', requireAuth, freeTierRouter);
   app.use('/api/settings', requireAuth, settingsRouter);
-  app.use('/api/premium', requireAuth, premiumRouter);
+  app.use('/api/catalog', requireAuth, catalogRouter);
   // Database dumps and restores. Dashboard-session gated: the dump files carry
   // encrypted provider keys and every routing setting, so the unified /v1 key
   // must not open this surface.
